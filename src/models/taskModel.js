@@ -1,0 +1,67 @@
+const db = require('../config/db');
+
+// Utility to wrap sqlite3 queries in Promises
+const runQuery = (query, params = []) => {
+  return new Promise((resolve, reject) => {
+    db.run(query, params, function (err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+};
+
+const getQuery = (query, params = []) => {
+  return new Promise((resolve, reject) => {
+    db.all(query, params, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows);
+    });
+  });
+};
+
+// The Model Methods
+const TaskModel = {
+  create: async (task) => {
+    const sql = `INSERT INTO tasks (title, description, status, due_date) VALUES (?, ?, ?, ?)`;
+    const result = await runQuery(sql, [task.title, task.description, task.status, task.due_date]);
+    return { id: result.lastID, ...task };
+  },
+
+  findAll: async () => {
+    // FILTER: Only show tasks that haven't been deleted
+    return await getQuery(`SELECT * FROM tasks WHERE deleted_at IS NULL`);
+  },
+
+  findById: async (id) => {
+    // SECURITY: Prevent accessing a deleted task via direct URL
+    const result = await getQuery(`SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL`, [id]);
+    return result[0];
+  },
+  update: async (id, task) => {
+    // SECURITY: Ensure we don't accidentally update a deleted task
+    // We add 'AND deleted_at IS NULL' to the WHERE clause
+    const sql = `UPDATE tasks SET title = ?, description = ?, status = ?, due_date = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`;
+    
+    await runQuery(sql, [task.title, task.description, task.status, task.due_date, task.updated_at, id]);
+    
+    return await TaskModel.findById(id);
+  },
+
+  delete: async (id) => {
+    // SOFT DELETE: Mark as deleted instead of removing the row
+    // We use CURRENT_TIMESTAMP to record exactly when it happened (Audit Trail)
+    return await runQuery(`UPDATE tasks SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?`, [id]);
+  },
+// Add this new method:
+  addHistory: async (taskId, summary) => {
+    const sql = `INSERT INTO task_history (task_id, change_summary) VALUES (?, ?)`;
+    return await runQuery(sql, [taskId, summary]);
+  },
+
+  // Add this method to retrieve history (for viewing later if needed)
+  getHistory: async (taskId) => {
+    return await getQuery(`SELECT * FROM task_history WHERE task_id = ? ORDER BY changed_at DESC`, [taskId]);
+  }
+};
+
+module.exports = TaskModel;

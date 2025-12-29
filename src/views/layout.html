@@ -1,0 +1,29 @@
+{% extends "govuk/template.njk" %}
+
+{% block head %}
+  <link href="/govuk/govuk-frontend.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block header %}
+  {{ govukHeader({
+    homepageUrl: "/",
+    serviceName: "Caseworker Task Manager",
+    serviceUrl: "/"
+  }) }}
+{% endblock %}
+
+{% block content %}
+  {% endblock %}
+
+{% block footer %}
+  {{ govukFooter({}) }}
+{% endblock %}
+
+{% block bodyEnd %}
+  <script type="module" src="/govuk/govuk-frontend.min.js"></script>
+  <script type="module">
+    import { initAll } from '/govuk/govuk-frontend.min.js'
+    initAll()
+  </script>
+  <script src="/js/app.js"></script>
+{% endblock %}

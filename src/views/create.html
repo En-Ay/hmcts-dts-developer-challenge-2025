@@ -1,0 +1,73 @@
+{% extends "layout.html" %}
+
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/textarea/macro.njk" import govukTextarea %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% block content %}
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-thirds">
+
+    <div class="govuk-error-summary" id="error-summary" aria-labelledby="error-summary-title" role="alert" tabindex="-1" style="display: none;">
+      <h2 class="govuk-error-summary__title" id="error-summary-title">
+        There is a problem
+      </h2>
+      <div class="govuk-error-summary__body">
+        <ul class="govuk-list govuk-error-summary__list">
+          <li id="summary-title-error" style="display: none;">
+            <a href="#title">Enter a task title</a>
+          </li>
+          <li id="summary-date-error" style="display: none;">
+            <a href="#due_date">Enter a due date and time</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    {{ govukBackLink({ text: "Back", href: "/" }) }}
+    
+    <h1 class="govuk-heading-xl">Create New Task</h1>
+
+    <form id="create-task-form" novalidate>
+      
+      <div class="govuk-form-group" id="title-group">
+        <label class="govuk-label govuk-label--l" for="title">Task Title</label>
+        
+        <p id="title-error" class="govuk-error-message" style="display: none;">
+          <span class="govuk-visually-hidden">Error:</span> Enter a task title
+        </p>
+
+        <input class="govuk-input" id="title" name="title" type="text">
+      </div>
+
+      <div class="govuk-form-group">
+        <label class="govuk-label govuk-label--m" for="description">Description</label>
+        <textarea class="govuk-textarea" id="description" name="description" rows="5"></textarea>
+      </div>
+
+      <div class="govuk-form-group">
+        <label class="govuk-label" for="status">Status</label>
+        <select class="govuk-select" id="status" name="status">
+          <option value="PENDING">Pending</option>
+          <option value="IN_PROGRESS">In Progress</option>
+          <option value="COMPLETED">Completed</option>
+        </select>
+      </div>
+
+      <div class="govuk-form-group" id="due-date-group">
+        <label class="govuk-label" for="due_date">Due Date & Time</label>
+        
+        <p id="due-date-error" class="govuk-error-message" style="display: none;">
+          <span class="govuk-visually-hidden">Error:</span> Enter a due date and time
+        </p>
+
+        <input class="govuk-input govuk-input--width-20" id="due_date" name="due_date" type="datetime-local">
+      </div>
+
+      <button class="govuk-button" data-module="govuk-button">Save Task</button>
+    </form>
+
+  </div>
+</div>
+{% endblock %}
