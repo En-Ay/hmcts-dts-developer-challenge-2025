@@ -43,6 +43,7 @@
     color: #0b0c0c;
     text-decoration: none;
   }
+
 </style>
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-two-full">
@@ -74,30 +75,30 @@
       <thead class="govuk-table__head">
         <tr class="govuk-table__row">
           
-          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 40px;">
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; min-width: 40px;">
             <button id="sort-id" class="app-table-sort-button" onclick="sortTable('id')">ID</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 150px;">
+          <th scope="col" class="govuk-table__header" style="min-width: 50px;">
             <button id="sort-title" class="app-table-sort-button" onclick="sortTable('title')">Title</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 150px;">
+          <th scope="col" class="govuk-table__header" style="width: auto;">
             <button id="sort-description" class="app-table-sort-button" onclick="sortTable('description')">Description</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 120px;">
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; min-width: 120px;">
             <button id="sort-status" class="app-table-sort-button" onclick="sortTable('status')">Status</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 100px;">
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 100px;">
             <button id="sort-created_at" class="app-table-sort-button" onclick="sortTable('created_at')">Created</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 100px;">
+          <th scope="col" class="govuk-tabler" style="white-space: nowrap; min-width: 100px;text-align: left;">
             <button id="sort-due_date" class="app-table-sort-button" onclick="sortTable('due_date')">Due Date</button>
           </th>
-          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 120px;">
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; min-width: 120px;">
             <button id="sort-updated_at" class="app-table-sort-button" onclick="sortTable('updated_at')">Last Updated</button>
           </th>
           <th scope="col" class="govuk-table__header" style="white-space: nowrap;">Action</th>
@@ -113,7 +114,7 @@
               <a href="/edit/{{ task.id }}" class="govuk-link" style="font-weight: bold;">{{ task.title }}</a>
             </td>
             
-            <td class="govuk-table__cell">{{ task.description }}</td>
+           <td class="govuk-table__cell">{{ task.description | truncate(255) }}</td>
             
             <td class="govuk-table__cell">
               {% if task.status == 'COMPLETED' %}
@@ -145,4 +146,4 @@
     </table>
   </div>
 </div>
-{% endblock %}
+{% endblock %}e__head

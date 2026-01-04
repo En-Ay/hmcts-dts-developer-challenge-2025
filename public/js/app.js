@@ -43,7 +43,41 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 // ==========================================
-// 1. CREATE TASK (Dual Validation + Business Logic)
+// 1. FORM VALIDATION LOGIC
+// ==========================================
+
+// Regex: Alphanumeric + space + common punctuation (.,:;_-)
+// Blocks: @ / ! $ % etc.
+const SAFE_TEXT_REGEX = /^[a-zA-Z0-9\s.,:;_\-]+$/;
+
+function validateForm(title, description, dateValue, originalDate = null) {
+  let errors = [];
+
+  // 1. Title Validation
+  if (!title.trim()) {
+    errors.push("Title is required");
+  } else if (title.length > 100) {
+    errors.push("Title must be 100 characters or less");
+  } else if (!SAFE_TEXT_REGEX.test(title)) {
+    errors.push("Title contains invalid characters (allowed: letters, numbers, spaces, and . , : ; - _)");
+  }
+
+  // 2. Description Validation (Optional but checked if present)
+  if (description && !SAFE_TEXT_REGEX.test(description)) {
+    errors.push("Description contains invalid characters (no @ / ! etc.)");
+  }
+
+  // 3. Date Validation
+  if (!dateValue) {
+    errors.push("Enter a due date and time");
+  } else if (new Date(dateValue) < new Date() && dateValue !== originalDate) {
+    errors.push("Due date must be in the future");
+  }
+
+  return errors;
+}
+// ==========================================
+// 2. CREATE TASK (Dual Validation + Business Logic)
 // ==========================================
 async function handleCreateTask(event) {
   event.preventDefault(); // STOP page reload
@@ -151,7 +185,7 @@ async function handleCreateTask(event) {
 }
 
 // ==========================================
-// 2. EDIT & DELETE LOGIC
+// 3. EDIT & DELETE LOGIC
 // ==========================================
 async function loadTaskForEdit(id) {
   const res = await fetch(`/api/tasks/${id}`);
@@ -168,11 +202,15 @@ async function loadTaskForEdit(id) {
     dateField.setAttribute('data-original-date', task.due_date); 
   }
 }
+// Regex: Allows Alphanumeric + space + common punctuation (.,:;_-)
+// Blocks: @ / ! $ % etc.
+
 async function handleEditSubmit(event, id) {
   event.preventDefault();
 
   // Inputs
   const titleInput = document.getElementById('title');
+  const descriptionInput = document.getElementById('description'); // NEW: Get Description
   const dateInput = document.getElementById('due_date');
 
   // Error Container Elements
@@ -182,12 +220,13 @@ async function handleEditSubmit(event, id) {
   const summaryTitleError = document.getElementById('summary-title-error');
   const titleGroup = document.getElementById('title-group');
   const titleErrorMsg = document.getElementById('title-error');
+  // Specific link inside summary box for title to update text dynamically
+  const summaryTitleLink = document.querySelector('#summary-title-error a');
   
   // Date Error Elements
   const summaryDateError = document.getElementById('summary-date-error');
   const dateGroup = document.getElementById('due-date-group');
   const dateErrorMsg = document.getElementById('due-date-error');
-  // Specific link inside summary box to update text dynamically
   const summaryDateLink = document.querySelector('#summary-date-error a');
 
   // --- RESET ALL ERRORS (Clean Slate) ---
@@ -204,35 +243,65 @@ async function handleEditSubmit(event, id) {
   if(dateErrorMsg) dateErrorMsg.style.display = 'none';
 
   let hasError = false;
+  let titleErrorMessageText = "Enter a title"; // Default message
 
   // --- VALIDATE TITLE ---
-  if (!titleInput.value.trim()) {
+  const titleValue = titleInput.value.trim();
+
+  // 1. Check Empty
+  if (!titleValue) {
+    hasError = true;
+    titleErrorMessageText = "Enter a title";
+  } 
+  // 2. Check Length (Max 100)
+  else if (titleValue.length > 100) {
+    hasError = true;
+    titleErrorMessageText = "Title must be 100 characters or less";
+  }
+  // 3. Check Invalid Characters
+  else if (!SAFE_TEXT_REGEX.test(titleValue)) {
+    hasError = true;
+    titleErrorMessageText = "Title contains invalid characters (allowed: letters, numbers, spaces, and . , : ; - _)";
+  }
+
+  // --- SHOW TITLE ERRORS ---
+  if (hasError && (summaryTitleError || titleGroup)) {
+    if (summaryTitleLink) summaryTitleLink.innerText = titleErrorMessageText;
+    if (titleErrorMsg) titleErrorMsg.innerHTML = `<span class="govuk-visually-hidden">Error:</span> ${titleErrorMessageText}`;
+
     if(summaryTitleError) summaryTitleError.style.display = 'block';
     if(titleGroup) titleGroup.classList.add('govuk-form-group--error');
     if(titleErrorMsg) titleErrorMsg.style.display = 'block';
     if(titleInput) titleInput.classList.add('govuk-input--error');
+  }
+
+  // --- VALIDATE DESCRIPTION (Optional but needs Safe Text check) ---
+  const descValue = descriptionInput ? descriptionInput.value : '';
+  if (descValue && !SAFE_TEXT_REGEX.test(descValue)) {
+    // For MVP, simple alert for description errors is usually acceptable 
+    // unless you want to build a full error UI for description too.
+    alert("Description contains invalid characters (no @ / ! etc.)");
     hasError = true;
   }
 
   // --- VALIDATE DATE (The Smart Logic) ---
   const dateValue = dateInput.value;
-  const originalDate = dateInput.getAttribute('data-original-date'); // Retrieve the saved date
+  const originalDate = dateInput.getAttribute('data-original-date'); 
   let dateErrorMessageText = "Enter a due date and time"; 
+  let dateHasError = false; // distinct flag so we don't mix title/date logic
 
-  // 1. Check if Empty (Always illegal)
   if (!dateValue) {
+    dateHasError = true;
     hasError = true;
   } 
-  // 2. Check if Past (Conditional)
-  // We only trigger an error if the date is in the past AND it is DIFFERENT from what it was before.
   else if (new Date(dateValue) < new Date() && dateValue !== originalDate) {
+    dateHasError = true;
     hasError = true;
     dateErrorMessageText = "Due date must be in the future";
   }
 
   // --- SHOW DATE ERRORS ---
-  if (hasError && (summaryDateError || dateGroup)) {
-    // Dynamically update the error text to match the specific problem
+  if (dateHasError && (summaryDateError || dateGroup)) {
     if (summaryDateLink) summaryDateLink.innerText = dateErrorMessageText;
     if (dateErrorMsg) dateErrorMsg.innerHTML = `<span class="govuk-visually-hidden">Error:</span> ${dateErrorMessageText}`;
 
@@ -264,7 +333,6 @@ async function handleEditSubmit(event, id) {
       window.location.href = '/';
     } else {
       const err = await response.json();
-      // If the backend catches something we missed (like malformed JSON)
       alert('Update failed: ' + (err.error || JSON.stringify(err)));
     }
   } catch (error) {
@@ -285,7 +353,7 @@ async function handleDeleteClick(id) {
 }
 
 // ==========================================
-// 3. TABLE RENDERING & SORTING
+// 4. TABLE RENDERING & SORTING
 // ==========================================
 async function fetchTasks() {
   try {
