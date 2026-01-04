@@ -395,5 +395,4 @@ function updateSortIcons(activeColumn, dir) {
     
     // 5. Append it to the button
     activeBtn.appendChild(arrowSpan);
-  }
-}
+}}

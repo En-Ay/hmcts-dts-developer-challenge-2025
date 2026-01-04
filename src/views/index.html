@@ -2,6 +2,7 @@
 
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
 
 {% block content %}
 <style>
@@ -33,78 +34,115 @@
     text-decoration: underline;
   }
 
-  /* Focus state: Standard GDS Yellow Box */
+  /* Focus state: ($govuk-focus-colour) */
   .app-table-sort-button:focus {
     outline: 3px solid #ffdd00;
     background-color: #ffdd00;
+    color: #0b0c0c;
     box-shadow: 0 -2px #ffdd00, 0 4px #0b0c0c;
     color: #0b0c0c;
     text-decoration: none;
   }
 </style>
-  <div class="govuk-grid-row">
-    <div class="govuk-grid-column-two-thirds">
-      
-      <h1 class="govuk-heading-xl">Caseworker Tasks</h1>
+<div class="govuk-grid-row">
+  <div class="govuk-grid-column-two-full">
+    
+    <h1 class="govuk-heading-xl">Caseworker Tasks</h1>
 
-      {{ govukButton({
-        text: "Create new task",
-        href: "/create-task",
-        isStartButton: true
-      }) }}
+    {{ govukButton({
+      text: "Create new task",
+      href: "/create-task",
+      isStartButton: true
+    }) }}
     <div class="govuk-grid-row govuk-!-margin-bottom-4 govuk-!-margin-top-4" style="background-color: #f3f2f1; padding: 20px 0;">
-        <div class="govuk-grid-column-one-third">
-          <div class="govuk-form-group govuk-!-margin-bottom-0">
-            <label class="govuk-label" for="status-filter">
-              <strong>Filter by status</strong>
-            </label>
-            <select class="govuk-select" id="status-filter" name="status-filter" style="width: 100%; min-width: 200px;">
-              <option value="ALL">Show all tasks</option>
-              <option value="PENDING">Pending</option>
-              <option value="IN_PROGRESS">In Progress</option>
-              <option value="COMPLETED">Completed</option>
-            </select>
-          </div>
+      <div class="govuk-grid-column-one-third">
+        <div class="govuk-form-group govuk-!-margin-bottom-0">
+          <label class="govuk-label" for="status-filter">
+            <strong>Filter by status</strong>
+          </label>
+          <select class="govuk-select" id="status-filter" name="status-filter" style="width: 100%; min-width: 200px;">
+            <option value="ALL">Show all tasks</option>
+            <option value="PENDING">Pending</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="COMPLETED">Completed</option>
+          </select>
         </div>
       </div>
-      <table class="govuk-table" id="task-table">
-        <caption class="govuk-table__caption govuk-table__caption--m">Current Tasks</caption>
-        <thead class="govuk-table__head">
-          <tr class="govuk-table__row">
-            
-            <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 40px;">
-              <button id="sort-id" class="app-table-sort-button" onclick="sortTable('id')">ID</button>
-            </th>
-
-            <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 150px;">
-              <button id="sort-title" class="app-table-sort-button" onclick="sortTable('title')">Title</button>
-            </th>
-
-            <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 150px;">
-              <button id="sort-description" class="app-table-sort-button" onclick="sortTable('description')">Description</button>
-            </th>
-
-            <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 120px;">
-              <button id="sort-status" class="app-table-sort-button" onclick="sortTable('status')">Status</button>
-            </th>
-
-            <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 100px;">
-              <button id="sort-created_at" class="app-table-sort-button" onclick="sortTable('created_at')">Created</button>
-            </th>
-
-            <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 100px;">
-              <button id="sort-due_date" class="app-table-sort-button" onclick="sortTable('due_date')">Due Date</button>
-            </th>
-            <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 100px;">
-              <button id="sort-updated_at" class="app-table-sort-button" onclick="sortTable('updated_at')">Last Updated</button>
-            </th>
-            <th scope="col" class="govuk-table__header" style="white-space: nowrap;">Action</th>
-          </tr>
-        </thead>
-        <tbody class="govuk-table__body" id="task-list-body">
-          </tbody>
-      </table>
-
     </div>
+    <table class="govuk-table" id="task-table">
+      <caption class="govuk-table__caption govuk-table__caption--m">Current Tasks</caption>
+      <thead class="govuk-table__head">
+        <tr class="govuk-table__row">
+          
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 40px;">
+            <button id="sort-id" class="app-table-sort-button" onclick="sortTable('id')">ID</button>
+          </th>
+
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 150px;">
+            <button id="sort-title" class="app-table-sort-button" onclick="sortTable('title')">Title</button>
+          </th>
+
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 150px;">
+            <button id="sort-description" class="app-table-sort-button" onclick="sortTable('description')">Description</button>
+          </th>
+
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 120px;">
+            <button id="sort-status" class="app-table-sort-button" onclick="sortTable('status')">Status</button>
+          </th>
+
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 100px;">
+            <button id="sort-created_at" class="app-table-sort-button" onclick="sortTable('created_at')">Created</button>
+          </th>
+
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 100px;">
+            <button id="sort-due_date" class="app-table-sort-button" onclick="sortTable('due_date')">Due Date</button>
+          </th>
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 20%; min-width: 120px;">
+            <button id="sort-updated_at" class="app-table-sort-button" onclick="sortTable('updated_at')">Last Updated</button>
+          </th>
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap;">Action</th>
+        </tr>
+      </thead>
+      <tbody class="govuk-table__body" id="task-list-body">
+        {% for task in tasks %}
+          <tr class="govuk-table__row" data-status="{{ task.status }}">
+            
+            <td class="govuk-table__cell">{{ task.id }}</td>
+            
+            <td class="govuk-table__cell">
+              <a href="/edit/{{ task.id }}" class="govuk-link" style="font-weight: bold;">{{ task.title }}</a>
+            </td>
+            
+            <td class="govuk-table__cell">{{ task.description }}</td>
+            
+            <td class="govuk-table__cell">
+              {% if task.status == 'COMPLETED' %}
+                  {{ govukTag({ text: "Completed", classes: "govuk-tag--green" }) }}
+                {% elif task.status == 'IN_PROGRESS' %}
+                  {{ govukTag({ text: "In Progress", classes: "govuk-tag--blue" }) }}
+                {% else %}
+                  {{ govukTag({ text: "Pending", classes: "govuk-tag--grey" }) }}
+                {% endif %}
+            </td>
+            
+            <td class="govuk-table__cell">{{ task.created_at }}</td>
+            
+            <td class="govuk-table__cell">{{ task.due_date | replace("T", " ") }}</td>
+            
+            <td class="govuk-table__cell">{{ task.updated_at or '-' }}</td>
+            
+            <td class="govuk-table__cell">
+              <a href="/edit/{{ task.id }}" class="govuk-link">Edit</a>
+            </td>
+            
+          </tr>
+        {% else %}
+          <tr class="govuk-table__row">
+            <td class="govuk-table__cell" colspan="8" style="text-align: center;">No tasks found.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
+</div>
 {% endblock %}
