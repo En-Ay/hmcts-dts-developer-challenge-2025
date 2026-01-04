@@ -29,7 +29,8 @@ const TaskModel = {
 
   findAll: async () => {
     // FILTER: Only show tasks that haven't been deleted
-    return await getQuery(`SELECT * FROM tasks WHERE deleted_at IS NULL`);
+    // SORT: Newest tasks first (LIFO) for better UX
+    return await getQuery(`SELECT * FROM tasks WHERE deleted_at IS NULL ORDER BY created_at DESC`);
   },
 
   findById: async (id) => {
@@ -37,6 +38,7 @@ const TaskModel = {
     const result = await getQuery(`SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL`, [id]);
     return result[0];
   },
+
   update: async (id, task) => {
     // SECURITY: Ensure we don't accidentally update a deleted task
     // We add 'AND deleted_at IS NULL' to the WHERE clause
@@ -52,15 +54,17 @@ const TaskModel = {
     // We use CURRENT_TIMESTAMP to record exactly when it happened (Audit Trail)
     return await runQuery(`UPDATE tasks SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?`, [id]);
   },
-// Add this new method:
+
+  // Audit History Method
   addHistory: async (taskId, summary) => {
     const sql = `INSERT INTO task_history (task_id, change_summary) VALUES (?, ?)`;
     return await runQuery(sql, [taskId, summary]);
   },
 
- // Fetch history for a specific task
+  // Fetch history for a specific task
   getHistory: (taskId) => {
     return new Promise((resolve, reject) => {
+      // SORT: Newest events first
       const sql = `SELECT * FROM task_history WHERE task_id = ? ORDER BY changed_at DESC`;
       db.all(sql, [taskId], (err, rows) => {
         if (err) reject(err);
