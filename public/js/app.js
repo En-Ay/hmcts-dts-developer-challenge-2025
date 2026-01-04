@@ -160,22 +160,116 @@ async function loadTaskForEdit(id) {
   document.getElementById('title').value = task.title;
   document.getElementById('description').value = task.description || '';
   document.getElementById('status').value = task.status;
-  if(task.due_date) document.getElementById('due_date').value = task.due_date;
+  
+  if(task.due_date) {
+    const dateField = document.getElementById('due_date');
+    dateField.value = task.due_date;
+    // CRITICAL: Store original date so validation knows if it changed
+    dateField.setAttribute('data-original-date', task.due_date); 
+  }
 }
-
 async function handleEditSubmit(event, id) {
   event.preventDefault();
+
+  // Inputs
+  const titleInput = document.getElementById('title');
+  const dateInput = document.getElementById('due_date');
+
+  // Error Container Elements
+  const errorSummary = document.getElementById('error-summary');
+  
+  // Title Error Elements
+  const summaryTitleError = document.getElementById('summary-title-error');
+  const titleGroup = document.getElementById('title-group');
+  const titleErrorMsg = document.getElementById('title-error');
+  
+  // Date Error Elements
+  const summaryDateError = document.getElementById('summary-date-error');
+  const dateGroup = document.getElementById('due-date-group');
+  const dateErrorMsg = document.getElementById('due-date-error');
+  // Specific link inside summary box to update text dynamically
+  const summaryDateLink = document.querySelector('#summary-date-error a');
+
+  // --- RESET ALL ERRORS (Clean Slate) ---
+  if(errorSummary) errorSummary.style.display = 'none';
+  if(summaryTitleError) summaryTitleError.style.display = 'none';
+  if(summaryDateError) summaryDateError.style.display = 'none';
+
+  if(titleGroup) titleGroup.classList.remove('govuk-form-group--error');
+  if(titleInput) titleInput.classList.remove('govuk-input--error');
+  if(titleErrorMsg) titleErrorMsg.style.display = 'none';
+
+  if(dateGroup) dateGroup.classList.remove('govuk-form-group--error');
+  if(dateInput) dateInput.classList.remove('govuk-input--error');
+  if(dateErrorMsg) dateErrorMsg.style.display = 'none';
+
+  let hasError = false;
+
+  // --- VALIDATE TITLE ---
+  if (!titleInput.value.trim()) {
+    if(summaryTitleError) summaryTitleError.style.display = 'block';
+    if(titleGroup) titleGroup.classList.add('govuk-form-group--error');
+    if(titleErrorMsg) titleErrorMsg.style.display = 'block';
+    if(titleInput) titleInput.classList.add('govuk-input--error');
+    hasError = true;
+  }
+
+  // --- VALIDATE DATE (The Smart Logic) ---
+  const dateValue = dateInput.value;
+  const originalDate = dateInput.getAttribute('data-original-date'); // Retrieve the saved date
+  let dateErrorMessageText = "Enter a due date and time"; 
+
+  // 1. Check if Empty (Always illegal)
+  if (!dateValue) {
+    hasError = true;
+  } 
+  // 2. Check if Past (Conditional)
+  // We only trigger an error if the date is in the past AND it is DIFFERENT from what it was before.
+  else if (new Date(dateValue) < new Date() && dateValue !== originalDate) {
+    hasError = true;
+    dateErrorMessageText = "Due date must be in the future";
+  }
+
+  // --- SHOW DATE ERRORS ---
+  if (hasError && (summaryDateError || dateGroup)) {
+    // Dynamically update the error text to match the specific problem
+    if (summaryDateLink) summaryDateLink.innerText = dateErrorMessageText;
+    if (dateErrorMsg) dateErrorMsg.innerHTML = `<span class="govuk-visually-hidden">Error:</span> ${dateErrorMessageText}`;
+
+    if(summaryDateError) summaryDateError.style.display = 'block';
+    if(dateGroup) dateGroup.classList.add('govuk-form-group--error');
+    if(dateErrorMsg) dateErrorMsg.style.display = 'block';
+    if(dateInput) dateInput.classList.add('govuk-input--error');
+  }
+
+  // --- FINAL CHECK ---
+  if (hasError) {
+    if(errorSummary) errorSummary.style.display = 'block';
+    window.scrollTo(0, 0);
+    return;
+  }
+
+  // --- SUBMIT ---
   const formData = new FormData(event.target);
   const data = Object.fromEntries(formData.entries());
 
-  const response = await fetch(`/api/tasks/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
+  try {
+    const response = await fetch(`/api/tasks/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
 
-  if (response.ok) window.location.href = '/';
-  else alert('Update failed');
+    if (response.ok) {
+      window.location.href = '/';
+    } else {
+      const err = await response.json();
+      // If the backend catches something we missed (like malformed JSON)
+      alert('Update failed: ' + (err.error || JSON.stringify(err)));
+    }
+  } catch (error) {
+    console.error('Error:', error);
+  }
 }
 
 async function handleDeleteClick(id) {

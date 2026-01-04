@@ -58,9 +58,15 @@ const TaskModel = {
     return await runQuery(sql, [taskId, summary]);
   },
 
-  // Add this method to retrieve history (for viewing later if needed)
-  getHistory: async (taskId) => {
-    return await getQuery(`SELECT * FROM task_history WHERE task_id = ? ORDER BY changed_at DESC`, [taskId]);
+ // Fetch history for a specific task
+  getHistory: (taskId) => {
+    return new Promise((resolve, reject) => {
+      const sql = `SELECT * FROM task_history WHERE task_id = ? ORDER BY changed_at DESC`;
+      db.all(sql, [taskId], (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
   }
 };
 
