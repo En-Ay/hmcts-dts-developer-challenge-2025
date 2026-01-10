@@ -382,7 +382,6 @@ function renderTable(tasks) {
   const tableBody = document.getElementById('task-list-body');
   tableBody.innerHTML = ''; 
 
-  // 1. Define Human-Readable Mappings
   const statusLabels = {
     'PENDING': 'Pending',
     'IN_PROGRESS': 'In Progress',
@@ -392,26 +391,38 @@ function renderTable(tasks) {
   tasks.forEach(task => {
     const row = document.createElement('tr');
     row.className = 'govuk-table__row';
+    
+    // CRITICAL: Re-add this attribute so filtering works after a sort
+    row.setAttribute('data-status', task.status);
 
     let statusClass = "govuk-tag--grey";
     if (task.status === 'COMPLETED') statusClass = "govuk-tag--green";
     if (task.status === 'IN_PROGRESS') statusClass = "govuk-tag--blue";
 
-    // 2. Get the clean text (fallback to raw value if missing)
     const displayStatus = statusLabels[task.status] || task.status;
 
+    // MATCHES YOUR NEW HTML STRUCTURE (6 Columns)
     row.innerHTML = `
-      <td class="govuk-table__cell text-grey">${task.id}</td>
-      <td class="govuk-table__cell"><strong>${task.title}</strong></td>
-      <td class="govuk-table__cell">${task.description || '-'}</td>
+      <td class="govuk-table__cell">${task.id}</td>
       
-      <td class="govuk-table__cell"><strong class="govuk-tag ${statusClass}">${displayStatus}</strong></td>
-      
-      <td class="govuk-table__cell">${task.created_at ? new Date(task.created_at).toLocaleDateString() : 'Now'}</td>
-      <td class="govuk-table__cell">${task.due_date ? new Date(task.due_date).toLocaleString() : 'N/A'}</td>
-      <td class="govuk-table__cell text-grey">${task.updated_at ? new Date(task.updated_at).toLocaleString() : 'Never'}</td>
       <td class="govuk-table__cell">
-         <a href="/edit-task/${task.id}" class="govuk-link govuk-link--no-visited-state">Edit</a>
+        <a href="/edit-task/${task.id}" class="govuk-link" style="font-weight: bold;">${task.title}</a>
+      </td>
+      
+      <td class="govuk-table__cell govuk-table__cell--description">
+        <div class="app-description-truncate">
+          ${task.description || ''}
+        </div>
+      </td>
+      
+      <td class="govuk-table__cell">
+        <strong class="govuk-tag ${statusClass}">${displayStatus}</strong>
+      </td>
+      
+      <td class="govuk-table__cell">${task.due_date ? new Date(task.due_date).toLocaleString() : 'N/A'}</td>
+      
+      <td class="govuk-table__cell">
+         <a href="/edit-task/${task.id}" class="govuk-link">Edit</a>
       </td>
     `;
     tableBody.appendChild(row);
