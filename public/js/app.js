@@ -459,9 +459,10 @@ async function fetchTasks() {
     const response = await fetch('/api/tasks');
     window.currentTasks = await response.json(); 
     
-    // NEW: Update the red "Overdue" number immediately
+    // Update the dashboard stat immediately
     updateOverdueCount(window.currentTasks);
 
+    // Initial Render
     applyFilterAndRender();
   } catch (error) {
     console.error('Error loading tasks:', error);
@@ -469,40 +470,71 @@ async function fetchTasks() {
 }
 
 function sortTable(column) {
-  const dir = sortDirection[column] === 'asc' ? 'desc' : 'asc';
-  sortDirection[column] = dir;
+  // Toggle direction if clicking the same column, else default to 'asc'
+  if (currentSort.field === column) {
+    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentSort.field = column;
+    currentSort.direction = 'asc';
+  }
 
-  currentTasks.sort((a, b) => {
-    let valA = a[column];
-    let valB = b[column];
-    if (valA == null) return 1; if (valB == null) return -1;
-    if (typeof valA === 'string') valA = valA.toLowerCase();
-    if (typeof valB === 'string') valB = valB.toLowerCase();
-    if (valA < valB) return dir === 'asc' ? -1 : 1;
-    if (valA > valB) return dir === 'asc' ? 1 : -1;
-    return 0;
-  });
+  // Update Visuals
+  updateSortIcons(column, currentSort.direction);
 
-  updateSortIcons(column, dir);
+  // Re-run the Pipeline
   applyFilterAndRender();
 }
+// PIPELINE: Filters Data -> Sorts Data -> Renders Data
 function applyFilterAndRender() {
   const filterSelect = document.getElementById('status-filter');
   const filterValue = filterSelect ? filterSelect.value : 'ALL';
-  let tasks = window.currentTasks || [];
   
+  // 1. CREATE A COPY (Don't mutate the global window.currentTasks)
+  let tasks = [...(window.currentTasks || [])];
+  
+  // 2. FILTER
   if (filterValue !== 'ALL') {
     if (filterValue === 'OVERDUE') {
-      // LOGIC: Due date is in the past AND status is NOT completed
       const now = new Date();
-      tasks = tasks.filter(t => {
-        return t.status !== 'COMPLETED' && new Date(t.due_date) < now;
-      });
+      tasks = tasks.filter(t => t.status !== 'COMPLETED' && new Date(t.due_date) < now);
     } else {
-      // Standard status filter
       tasks = tasks.filter(t => t.status === filterValue);
     }
   }
+
+  // 3. SORT (The Fixed "Senior" Logic)
+  tasks.sort((a, b) => {
+    let valA = a[currentSort.field];
+    let valB = b[currentSort.field];
+
+    // Handle Nulls (Push to bottom)
+    if (valA == null) return 1;
+    if (valB == null) return -1;
+
+    // A. Numeric Sort (Fixes "1, 10, 2" bug)
+    if (currentSort.field === 'id') {
+      return (Number(valA) - Number(valB)) * (currentSort.direction === 'asc' ? 1 : -1);
+    }
+
+    // B. Date Sort (Uses Timestamps for accuracy)
+    if (currentSort.field === 'due_date' || currentSort.field === 'created_at') {
+      const dateA = new Date(valA).getTime();
+      const dateB = new Date(valB).getTime();
+      return (dateA - dateB) * (currentSort.direction === 'asc' ? 1 : -1);
+    }
+
+    // C. String Sort (Case Insensitive)
+    if (typeof valA === 'string') {
+      valA = valA.toLowerCase();
+      valB = valB.toLowerCase();
+    }
+
+    if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
+    if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // 4. RENDER
   renderTable(tasks);
 }
 function updateOverdueCount(tasks) {
@@ -533,34 +565,31 @@ function renderTable(tasks) {
     const row = document.createElement('tr');
     row.className = 'govuk-table__row';
     
-    // CRITICAL: Re-add this attribute so filtering works after a sort
-    row.setAttribute('data-status', task.status);
-
+    // Status Logic
     let statusClass = "govuk-tag--grey";
     if (task.status === 'COMPLETED') statusClass = "govuk-tag--green";
     if (task.status === 'IN_PROGRESS') statusClass = "govuk-tag--blue";
     const displayStatus = STATUS_LABELS[task.status] || task.status;
     
-    // MATCHES YOUR NEW HTML STRUCTURE (6 Columns)
+    // Date Formatting (Uses Helper if available, else inline fallback)
+    const dateStr = typeof formatDisplayDate === 'function' 
+      ? formatDisplayDate(task.due_date) 
+      : (task.due_date ? new Date(task.due_date).toLocaleString() : 'N/A');
+
     row.innerHTML = `
       <td class="govuk-table__cell">${task.id}</td>
-      
       <td class="govuk-table__cell">
         <a href="/edit-task/${task.id}" class="govuk-link" style="font-weight: bold;">${task.title}</a>
       </td>
-      
       <td class="govuk-table__cell govuk-table__cell--description">
         <div class="app-description-truncate">
           ${task.description || ''}
         </div>
       </td>
-      
       <td class="govuk-table__cell">
         <strong class="govuk-tag ${statusClass}">${displayStatus}</strong>
       </td>
-      
-      <td class="govuk-table__cell">${task.due_date ? new Date(task.due_date).toLocaleString() : 'N/A'}</td>
-      
+      <td class="govuk-table__cell">${dateStr}</td>
       <td class="govuk-table__cell">
          <a href="/edit-task/${task.id}" class="govuk-link">Edit</a>
       </td>
@@ -568,32 +597,44 @@ function renderTable(tasks) {
     tableBody.appendChild(row);
   });
 }
+function updateOverdueCount(tasks) {
+  const container = document.getElementById('overdue-stat-box');
+  const countEl = document.getElementById('overdue-count');
+  
+  if (!container || !countEl) return;
 
+  const now = new Date();
+  const overdueCount = tasks.filter(t => 
+    t.status !== 'COMPLETED' && new Date(t.due_date) < now
+  ).length;
+
+  countEl.textContent = overdueCount;
+  
+  // Toggle Visibility
+  if (overdueCount > 0) {
+      container.style.display = 'block';
+  } else {
+      container.style.display = 'none';
+  }
+}
 
 function updateSortIcons(activeColumn, dir) {
-  // 1. Select all sort buttons to clean them up first
+  // 1. Clean up old arrows
   const buttons = document.querySelectorAll('.app-table-sort-button');
-
   buttons.forEach(btn => {
-    // Check if an arrow span already exists inside this button and remove it
     const existingArrow = btn.querySelector('.sort-arrow');
-    if (existingArrow) {
-      existingArrow.remove();
-    }
+    if (existingArrow) existingArrow.remove();
   });
 
-  // 2. Find the currently active button
+  // 2. Add arrow to the active button
+  // Note: This relies on your HTML buttons having id="sort-{column}"
+  // e.g., <button id="sort-due_date" ...>
   const activeBtn = document.getElementById(`sort-${activeColumn}`);
   
   if (activeBtn) {
-    // 3. Create a new span for the arrow
     const arrowSpan = document.createElement('span');
-    arrowSpan.className = 'sort-arrow'; // Class for potential CSS styling
-    
-    // 4. Set the arrow icon based on direction
-    // \u25B2 is ▲ (Up), \u25BC is ▼ (Down)
-    arrowSpan.textContent = dir === 'asc' ? ' \u25B2' : ' \u25BC'; 
-    
-    // 5. Append it to the button
+    arrowSpan.className = 'sort-arrow';
+    arrowSpan.textContent = dir === 'asc' ? ' \u25B2' : ' \u25BC'; // ▲ or ▼
     activeBtn.appendChild(arrowSpan);
-}}
+  }
+}

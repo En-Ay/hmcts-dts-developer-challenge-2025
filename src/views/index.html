@@ -20,9 +20,6 @@
     overflow: hidden;
   }
   
-  .govuk-table__cell--description {
-    width: 40%; /* Increased width since we removed other columns */
-  }
 
   /* Sort Button Styles */
   .app-table-sort-button {
@@ -104,15 +101,15 @@
       <thead class="govuk-table__head">
         <tr class="govuk-table__row">
           
-          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 5%;">
-            <button id="sort-id" class="app-table-sort-button" onclick="handleSort('id')">ID</button>
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 6%;">
+            <button id="sort-id" class="app-table-sort-button" onclick="sortTable('id')">ID</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="width: 35%;">
+          <th scope="col" class="govuk-table__header" style="width: 30%;">
             <button id="sort-title" class="app-table-sort-button" onclick="sortTable('title')">Title</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="width: 22%;">
+          <th scope="col" class="govuk-table__header" style="width: 20%;">
             <button id="sort-description" class="app-table-sort-button" onclick="sortTable('description')">Description</button>
           </th>
 
@@ -120,11 +117,11 @@
             <button id="sort-status" class="app-table-sort-button" onclick="sortTable('status')">Status</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 18%; text-align: left;">
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 15%;">
             <button id="sort-due_date" class="app-table-sort-button" onclick="sortTable('due_date')">Due Date</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 10%;">Action</th>
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 8%;">Action</th>
         </tr>
       </thead>
 
