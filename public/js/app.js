@@ -21,7 +21,20 @@ function formatDisplayDate(isoString) {
   
   return date.toLocaleString('en-GB', DATE_OPTIONS);
 }
+// Function to prepare form data, converting local date to UTC ISO string
+function prepareTaskPayload(formData) {
+  const data = Object.fromEntries(formData.entries());
 
+  if (data.due_date) {
+    // 1. Create a Date object (Browser assumes this is Local Time)
+    const localDate = new Date(data.due_date);
+    
+    // 2. Convert to strict UTC String (e.g., "2025-01-10T13:00:00.000Z")
+    data.due_date = localDate.toISOString();
+  }
+  
+  return data;
+}
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Identify active page elements
   const tableBody = document.getElementById('task-list-body');
@@ -266,19 +279,13 @@ function renderHistory(historyItems) {
   }
 
   const html = historyItems.map(item => {
-    // 1. USE THE HELPER: Guarantees consistency with the main table
-    const date = formatDisplayDate(item.changed_at);
-    
-    // 2. RAW TEXT: Trust the backend's "Smart Diff" to provide readable text
-    const displayText = item.change_summary;
-
     return `
       <div class="govuk-!-margin-bottom-4">
-        <p class="govuk-body-s govuk-!-margin-bottom-1" style="font-weight:bold;">
-          ${displayText}
+        <p class="govuk-body-s govuk-!-margin-bottom-1" style="font-weight:bold; white-space: pre-line;">
+          ${item.change_summary}
         </p>
         <span class="govuk-body-xs" style="color: #505a5f;">
-          ${date}
+          ${formatDisplayDate(item.changed_at)}
         </span>
       </div>
     `;
@@ -552,17 +559,3 @@ function updateSortIcons(activeColumn, dir) {
     // 5. Append it to the button
     activeBtn.appendChild(arrowSpan);
 }}
-// Function to prepare form data, converting local date to UTC ISO string
-function prepareTaskPayload(formData) {
-  const data = Object.fromEntries(formData.entries());
-
-  if (data.due_date) {
-    // 1. Create a Date object (Browser assumes this is Local Time)
-    const localDate = new Date(data.due_date);
-    
-    // 2. Convert to strict UTC String (e.g., "2025-01-10T13:00:00.000Z")
-    data.due_date = localDate.toISOString();
-  }
-  
-  return data;
-}
