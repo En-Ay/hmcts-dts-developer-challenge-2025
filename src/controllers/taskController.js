@@ -1,11 +1,27 @@
 const TaskModel = require('../models/taskModel');
 const { z } = require('zod');
+// REGEX Patterns:
+// ^ ... $  : Match start to end
+// \p{L}    : Any Unicode Letter (includes accents like é, ü, ñ, etc.)
+// \p{N}    : Any Unicode Number
+// \s       : Whitespace
+// ...      : Plus your specific punctuation allowed list
+const TITLE_REGEX = /^[\p{L}\p{N}\s.,:;_\-()'"?!£$%&]+$/u;
+const DESC_REGEX = /^[\p{L}\p{N}\s.,:;_\-()'"?!£$%&\n\r]+$/u;
 
-// 1. RELAXED Schema (Types Only)
-// We removed the .refine() rule here because it's too broad
+// 1. Validation (Types Only)
 const taskSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
+  title: z.string()
+    .min(1, "Title is required")
+    .max(100, "Title must be 100 characters or less")
+    .regex(TITLE_REGEX, "Title contains invalid characters (check for special symbols)"),
+    
+  description: z.string()
+    .max(2000, "Description must be 2000 characters or less")
+    .regex(DESC_REGEX, "Description contains invalid characters")
+    .optional()
+    .or(z.literal('')),
+    
   status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED']).default('PENDING'),
   due_date: z.string().min(1, "Due date is required") 
 });

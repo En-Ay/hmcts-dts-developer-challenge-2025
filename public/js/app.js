@@ -12,7 +12,10 @@ const DATE_OPTIONS = {
   day: 'numeric', month: 'short', year: 'numeric',
   hour: '2-digit', minute: '2-digit', hour12: false
 };
-
+// Regex Patterns for Safe Text Validation
+// We use the 'u' flag for Unicode matching
+const SAFE_TITLE_REGEX = /^[\p{L}\p{N}\s.,:;_\-()'"?!£$%&]+$/u;
+const SAFE_DESC_REGEX = /^[\p{L}\p{N}\s.,:;_\-()'"?!£$%&\n\r]+$/u;
 function formatDisplayDate(isoString) {
   if (!isoString) return 'N/A';
   // Check if it's a valid date
@@ -91,13 +94,17 @@ function validateForm(title, description, dateValue, originalDate = null) {
     errors.push("Title is required");
   } else if (title.length > 100) {
     errors.push("Title must be 100 characters or less");
-  } else if (!SAFE_TEXT_REGEX.test(title)) {
-    errors.push("Title contains invalid characters (allowed: letters, numbers, spaces, and . , : ; - _)");
+  } else if (!SAFE_TITLE_REGEX.test(title)) {
+    errors.push("Title contains invalid characters");
   }
 
-  // 2. Description Validation (Optional but checked if present)
-  if (description && !SAFE_TEXT_REGEX.test(description)) {
-    errors.push("Description contains invalid characters (no @ / ! etc.)");
+  // 2. Description Validation (Optional, Max 2000, Safe Chars + Newlines)
+  if (description) {
+    if (description.length > 2000) {
+      errors.push("Description must be 2000 characters or less");
+    } else if (!SAFE_DESC_REGEX.test(description)) {
+      errors.push("Description contains invalid characters");
+    }
   }
 
   // 3. Date Validation
