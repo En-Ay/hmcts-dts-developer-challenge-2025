@@ -78,7 +78,10 @@ const TaskController = {
       await TaskModel.update(id, updatedTaskData);
 
       if (changes.length > 0) {
-        await TaskModel.addHistory(id, changes.join(', '));
+        // OLD: await TaskModel.addHistory(id, changes.join(', '));
+        
+        // NEW: Join with a newline character
+        await TaskModel.addHistory(id, changes.join('\n'));
       }
       
       res.status(200).json(updatedTaskData);
