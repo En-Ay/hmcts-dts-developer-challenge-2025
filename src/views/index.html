@@ -64,7 +64,8 @@
       isStartButton: true
     }) }}
 
-    <div class="govuk-grid-row govuk-!-margin-bottom-4 govuk-!-margin-top-4" style="background-color: #f3f2f1; padding: 20px 0;">
+  <div class="govuk-grid-row govuk-!-margin-bottom-4 govuk-!-margin-top-4" style="background-color: #f3f2f1; padding: 20px 0;">
+      
       <div class="govuk-grid-column-one-third">
         <div class="govuk-form-group govuk-!-margin-bottom-0">
           <label class="govuk-label" for="status-filter">
@@ -72,29 +73,46 @@
           </label>
           <select class="govuk-select" id="status-filter" name="status-filter" style="width: 100%; min-width: 200px;">
             <option value="ALL">Show all tasks</option>
+            <option value="OVERDUE">Overdue</option> 
             <option value="PENDING">Pending</option>
             <option value="IN_PROGRESS">In Progress</option>
             <option value="COMPLETED">Completed</option>
           </select>
         </div>
       </div>
+
+      <div class="govuk-grid-column-one-third" id="overdue-stat-box" style="display: none;">
+         <div class="govuk-form-group govuk-!-margin-bottom-0">
+            <label class="govuk-label">
+                <strong>Tasks Overdue</strong>
+            </label>
+            <span id="overdue-count" class="govuk-heading-l govuk-!-margin-bottom-0" style="color: #d4351c;">
+              -
+            </span>
+        </div>
+      </div>
+
     </div>
 
     <table class="govuk-table" id="task-table">
-      <caption class="govuk-table__caption govuk-table__caption--m">Current Tasks</caption>
-      
+      <caption class="govuk-table__caption govuk-table__caption--m">
+        Current Tasks 
+        <span class="govuk-body-s govuk-!-font-weight-regular text-grey">
+          (Showing up to next 100 due)
+        </span>
+      </caption>
       <thead class="govuk-table__head">
         <tr class="govuk-table__row">
           
           <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 5%;">
-            <button id="sort-id" class="app-table-sort-button" onclick="sortTable('id')">ID</button>
+            <button id="sort-id" class="app-table-sort-button" onclick="handleSort('id')">ID</button>
           </th>
 
           <th scope="col" class="govuk-table__header" style="width: 35%;">
             <button id="sort-title" class="app-table-sort-button" onclick="sortTable('title')">Title</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="width: 25%;">
+          <th scope="col" class="govuk-table__header" style="width: 22%;">
             <button id="sort-description" class="app-table-sort-button" onclick="sortTable('description')">Description</button>
           </th>
 
@@ -102,7 +120,7 @@
             <button id="sort-status" class="app-table-sort-button" onclick="sortTable('status')">Status</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 15%; text-align: left;">
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 18%; text-align: left;">
             <button id="sort-due_date" class="app-table-sort-button" onclick="sortTable('due_date')">Due Date</button>
           </th>
 

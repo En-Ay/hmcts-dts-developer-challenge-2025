@@ -33,11 +33,10 @@ const TaskModel = {
     },
 
   findAll: async () => {
-    // FILTER: Only show tasks that haven't been deleted
-    // SORT: Newest tasks first (LIFO) for better UX
-    return await getQuery(`SELECT * FROM tasks WHERE deleted_at IS NULL ORDER BY created_at DESC`);
+    // 1. ORDER BY due_date ASC (Show urgent tasks first)
+    // 2. LIMIT 100 (Prevent server crash on large datasets)
+    return await getQuery(`SELECT * FROM tasks WHERE deleted_at IS NULL ORDER BY due_date ASC`);
   },
-
   findById: async (id) => {
     // SECURITY: Prevent accessing a deleted task via direct URL
     const result = await getQuery(`SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL`, [id]);

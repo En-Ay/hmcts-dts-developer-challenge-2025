@@ -1,6 +1,7 @@
 // Global State
 let currentTasks = [];
 let sortDirection = {}; 
+let currentSort = { field: 'due_date', direction: 'asc' }; // Default sort
 // SHARED CONSTANTS (Single Source of Truth)
 const STATUS_LABELS = {
   'PENDING': 'Pending',
@@ -456,26 +457,74 @@ async function handleDeleteClick(id) {
 async function fetchTasks() {
   try {
     const response = await fetch('/api/tasks');
-    currentTasks = await response.json();
+    window.currentTasks = await response.json(); 
+    
+    // NEW: Update the red "Overdue" number immediately
+    updateOverdueCount(window.currentTasks);
+
     applyFilterAndRender();
   } catch (error) {
     console.error('Error loading tasks:', error);
   }
 }
 
+function sortTable(column) {
+  const dir = sortDirection[column] === 'asc' ? 'desc' : 'asc';
+  sortDirection[column] = dir;
+
+  currentTasks.sort((a, b) => {
+    let valA = a[column];
+    let valB = b[column];
+    if (valA == null) return 1; if (valB == null) return -1;
+    if (typeof valA === 'string') valA = valA.toLowerCase();
+    if (typeof valB === 'string') valB = valB.toLowerCase();
+    if (valA < valB) return dir === 'asc' ? -1 : 1;
+    if (valA > valB) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  updateSortIcons(column, dir);
+  applyFilterAndRender();
+}
 function applyFilterAndRender() {
   const filterSelect = document.getElementById('status-filter');
   const filterValue = filterSelect ? filterSelect.value : 'ALL';
+  let tasks = window.currentTasks || [];
   
-  let tasksToRender = [...currentTasks];
-
   if (filterValue !== 'ALL') {
-    tasksToRender = tasksToRender.filter(task => task.status === filterValue);
+    if (filterValue === 'OVERDUE') {
+      // LOGIC: Due date is in the past AND status is NOT completed
+      const now = new Date();
+      tasks = tasks.filter(t => {
+        return t.status !== 'COMPLETED' && new Date(t.due_date) < now;
+      });
+    } else {
+      // Standard status filter
+      tasks = tasks.filter(t => t.status === filterValue);
+    }
   }
-
-  renderTable(tasksToRender);
+  renderTable(tasks);
 }
+function updateOverdueCount(tasks) {
+  const container = document.getElementById('overdue-stat-box'); // The column div
+  const countEl = document.getElementById('overdue-count');      // The number span
+  
+  if (!container || !countEl) return;
 
+  const now = new Date();
+  const overdueCount = tasks.filter(t => 
+    t.status !== 'COMPLETED' && new Date(t.due_date) < now
+  ).length;
+
+  countEl.textContent = overdueCount;
+  
+  // LOGIC: Only show the box if there are actually overdue tasks
+  if (overdueCount > 0) {
+      container.style.display = 'block';
+  } else {
+      container.style.display = 'none';
+  }
+}
 function renderTable(tasks) {
   const tableBody = document.getElementById('task-list-body');
   tableBody.innerHTML = ''; 
@@ -520,24 +569,6 @@ function renderTable(tasks) {
   });
 }
 
-function sortTable(column) {
-  const dir = sortDirection[column] === 'asc' ? 'desc' : 'asc';
-  sortDirection[column] = dir;
-
-  currentTasks.sort((a, b) => {
-    let valA = a[column];
-    let valB = b[column];
-    if (valA == null) return 1; if (valB == null) return -1;
-    if (typeof valA === 'string') valA = valA.toLowerCase();
-    if (typeof valB === 'string') valB = valB.toLowerCase();
-    if (valA < valB) return dir === 'asc' ? -1 : 1;
-    if (valA > valB) return dir === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  updateSortIcons(column, dir);
-  applyFilterAndRender();
-}
 
 function updateSortIcons(activeColumn, dir) {
   // 1. Select all sort buttons to clean them up first
