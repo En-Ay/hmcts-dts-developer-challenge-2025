@@ -69,8 +69,9 @@ const TaskModel = {
   // Fetch history for a specific task
   getHistory: (taskId) => {
     return new Promise((resolve, reject) => {
-      // SORT: Newest events first
-      const sql = `SELECT * FROM task_history WHERE task_id = ? ORDER BY changed_at DESC`;
+      // FIX: Add secondary sort 'id DESC' to handle events happening in the same second
+      const sql = `SELECT * FROM task_history WHERE task_id = ? ORDER BY changed_at DESC, id DESC`;
+      
       db.all(sql, [taskId], (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
