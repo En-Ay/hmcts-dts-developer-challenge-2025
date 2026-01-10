@@ -8,7 +8,7 @@
 <style>
   /* Make buttons look exactly like standard GDS Table Headers */
   .govuk-table {
-    table-layout: auto;
+    table-layout: fixed;
     width: 100%;
   }
   
@@ -105,23 +105,23 @@
             <button id="sort-id" class="app-table-sort-button" onclick="sortTable('id')">ID</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="width: 30%;">
+          <th scope="col" class="govuk-table__header" style="width: 28%;">
             <button id="sort-title" class="app-table-sort-button" onclick="sortTable('title')">Title</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="width: 20%;">
+          <th scope="col" class="govuk-table__header" style="width: 23%;">
             <button id="sort-description" class="app-table-sort-button" onclick="sortTable('description')">Description</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 10%;">
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 12%;">
             <button id="sort-status" class="app-table-sort-button" onclick="sortTable('status')">Status</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 15%;">
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 12%;">
             <button id="sort-due_date" class="app-table-sort-button" onclick="sortTable('due_date')">Due Date</button>
           </th>
 
-          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 8%;">Action</th>
+          <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 5%;">Action</th>
         </tr>
       </thead>
 
