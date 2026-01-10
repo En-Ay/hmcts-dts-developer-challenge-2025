@@ -67,19 +67,7 @@ const TaskController = {
       }
 
       // ... Audit Logic (Same as before) ...
-      let changes = [];
-      if (validatedData.status && validatedData.status !== existingTask.status) {
-        changes.push(`Status changed from '${existingTask.status}' to '${validatedData.status}'`);
-      }
-      if (validatedData.title && validatedData.title !== existingTask.title) {
-        changes.push(`Title updated`);
-      }
-      if (validatedData.description && validatedData.description !== existingTask.description) {
-        changes.push(`Description updated`);
-      }
-      if (validatedData.due_date && validatedData.due_date !== existingTask.due_date) {
-        changes.push(`Due date rescheduled`);
-      }
+      const changes = generateChangeLog(existingTask, validatedData);
 
       const updatedTaskData = { 
         ...existingTask, 
@@ -126,4 +114,54 @@ const TaskController = {
   }
 };
 
+// AUDIT LOGIC ENGINE //
+// CONFIGURATION: How each field behaves in the audit log
+const AUDIT_CONFIG = {
+  title: { label: "Title" }, // Default string comparison
+  description: { label: "Description" },
+  status: { 
+    label: "Status",
+    // Transform "IN_PROGRESS" -> "In Progress" for the log
+    format: (val) => val.replace('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) 
+  },
+  due_date: { 
+    label: "Due date",
+    // Custom comparator to handle the UTC vs String issues we solved earlier
+    isEqual: (a, b) => new Date(a).getTime() === new Date(b).getTime(),
+    // Custom formatter for the "Europe/London" requirement
+    format: (val) => new Date(val).toLocaleString('en-GB', { 
+      timeZone: 'Europe/London',
+      day: '2-digit', month: '2-digit', year: 'numeric', 
+      hour: '2-digit', minute: '2-digit'
+    })
+  }
+};
+
+// THE ENGINE: Generic function to detect changes
+function generateChangeLog(original, incoming) {
+  const changes = [];
+
+  Object.keys(incoming).forEach(key => {
+    const config = AUDIT_CONFIG[key];
+    if (!config) return; // Ignore fields we don't track (like internal IDs)
+
+    const oldVal = original[key];
+    const newVal = incoming[key];
+
+    // 1. Check for Equality (Use custom logic if provided, else strict ===)
+    const isSame = config.isEqual 
+      ? config.isEqual(oldVal, newVal) 
+      : oldVal === newVal;
+
+    if (!isSame) {
+      // 2. Format the output (Use custom formatter if provided)
+      const fromText = config.format ? config.format(oldVal) : oldVal;
+      const toText = config.format ? config.format(newVal) : newVal;
+
+      changes.push(`${config.label} changed from '${fromText}' to '${toText}'`);
+    }
+  });
+
+  return changes;
+}
 module.exports = TaskController;

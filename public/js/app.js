@@ -7,6 +7,21 @@ const STATUS_LABELS = {
   'IN_PROGRESS': 'In Progress',
   'COMPLETED': 'Completed'
 };
+// Date Formatting Options
+const DATE_OPTIONS = {
+  day: 'numeric', month: 'short', year: 'numeric',
+  hour: '2-digit', minute: '2-digit', hour12: false
+};
+
+function formatDisplayDate(isoString) {
+  if (!isoString) return 'N/A';
+  // Check if it's a valid date
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return 'Invalid Date';
+  
+  return date.toLocaleString('en-GB', DATE_OPTIONS);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Identify active page elements
   const tableBody = document.getElementById('task-list-body');
@@ -168,7 +183,7 @@ async function handleCreateTask(event) {
 
   // Submit Data
   const formData = new FormData(event.target);
-  const data = Object.fromEntries(formData.entries());
+  const data = prepareTaskPayload(formData); // <--- Converts to UTC
 
   try {
     const response = await fetch('/api/tasks', {
@@ -211,22 +226,37 @@ async function loadTaskForEdit(id) {
     
     if(task.due_date) {
       const dateField = document.getElementById('due_date');
-      dateField.value = task.due_date;
-      dateField.setAttribute('data-original-date', task.due_date); 
+      
+      // HTML5 datetime-local inputs require YYYY-MM-DDTHH:MM
+      // If your DB sends "2025-01-20T10:00:00.000Z", we need to format it for the input
+      const dateObj = new Date(task.due_date);
+      
+      // Adjust to local time string for the input value (simplest way for this test)
+      // Note: This is a quick hack. A heavy production app would use a library like 'date-fns'
+      const isoLocal = new Date(dateObj.getTime() - (dateObj.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+      
+      dateField.value = isoLocal;
+      dateField.setAttribute('data-original-date', isoLocal); 
     }
 
     // 2. Render History if available
     if (historyRes.ok) {
       const history = await historyRes.json();
       renderHistory(history);
+    } else {
+      // High Code: Handle API 404/500 errors gracefully in the UI
+      historyContainer.innerHTML = '<p class="govuk-body-s text-grey">Unable to load history.</p>';
     }
 
   } catch (error) {
     console.error("Error loading edit page:", error);
+    // UI Feedback for the user
+    if(historyContainer) {
+        historyContainer.innerHTML = '<p class="govuk-body-s govuk-error-message">Error loading data.</p>';
+    }
   }
 }
-
-// Add this new helper function
+// Renders the Audit History Section
 function renderHistory(historyItems) {
   const container = document.getElementById('history-container');
   
@@ -236,22 +266,16 @@ function renderHistory(historyItems) {
   }
 
   const html = historyItems.map(item => {
-    const date = new Date(item.changed_at).toLocaleString('en-GB', {
-      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-    });
+    // 1. USE THE HELPER: Guarantees consistency with the main table
+    const date = formatDisplayDate(item.changed_at);
     
-    let displayText = item.change_summary;
+    // 2. RAW TEXT: Trust the backend's "Smart Diff" to provide readable text
+    const displayText = item.change_summary;
 
-    // USE GLOBAL CONSTANT HERE:
-    Object.keys(STATUS_LABELS).forEach(code => {
-      if (displayText.includes(code)) {
-        displayText = displayText.replaceAll(code, STATUS_LABELS[code]);
-      }
-    });
     return `
       <div class="govuk-!-margin-bottom-4">
         <p class="govuk-body-s govuk-!-margin-bottom-1" style="font-weight:bold;">
-          ${item.change_summary}
+          ${displayText}
         </p>
         <span class="govuk-body-xs" style="color: #505a5f;">
           ${date}
@@ -380,7 +404,7 @@ async function handleEditSubmit(event, id) {
 
   // --- SUBMIT ---
   const formData = new FormData(event.target);
-  const data = Object.fromEntries(formData.entries());
+  const data = prepareTaskPayload(formData); // <--- Converts to UTC
 
   try {
     const response = await fetch(`/api/tasks/${id}`, {
@@ -528,3 +552,17 @@ function updateSortIcons(activeColumn, dir) {
     // 5. Append it to the button
     activeBtn.appendChild(arrowSpan);
 }}
+// Function to prepare form data, converting local date to UTC ISO string
+function prepareTaskPayload(formData) {
+  const data = Object.fromEntries(formData.entries());
+
+  if (data.due_date) {
+    // 1. Create a Date object (Browser assumes this is Local Time)
+    const localDate = new Date(data.due_date);
+    
+    // 2. Convert to strict UTC String (e.g., "2025-01-10T13:00:00.000Z")
+    data.due_date = localDate.toISOString();
+  }
+  
+  return data;
+}
