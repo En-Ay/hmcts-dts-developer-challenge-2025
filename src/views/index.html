@@ -65,16 +65,42 @@
       
       <div class="govuk-grid-column-one-third">
         <div class="govuk-form-group govuk-!-margin-bottom-0">
-          <label class="govuk-label" for="status-filter">
-            <strong>Filter by status</strong>
-          </label>
-          <select class="govuk-select" id="status-filter" name="status-filter" style="width: 100%; min-width: 200px;">
-            <option value="ALL">Show all tasks</option>
-            <option value="OVERDUE">Overdue</option> 
-            <option value="PENDING">Pending</option>
-            <option value="IN_PROGRESS">In Progress</option>
-            <option value="COMPLETED">Completed</option>
-          </select>
+          <fieldset class="govuk-fieldset">
+            <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">
+              Filter by status
+            </legend>
+            <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+              
+              <div class="govuk-checkboxes__item">
+                <input class="govuk-checkboxes__input filter-checkbox" id="status-pending" name="status" type="checkbox" value="PENDING" checked>
+                <label class="govuk-label govuk-checkboxes__label" for="status-pending">
+                  Pending
+                </label>
+              </div>
+
+              <div class="govuk-checkboxes__item">
+                <input class="govuk-checkboxes__input filter-checkbox" id="status-progress" name="status" type="checkbox" value="IN_PROGRESS" checked>
+                <label class="govuk-label govuk-checkboxes__label" for="status-progress">
+                  In Progress
+                </label>
+              </div>
+
+              <div class="govuk-checkboxes__item">
+                <input class="govuk-checkboxes__input filter-checkbox" id="status-completed" name="status" type="checkbox" value="COMPLETED">
+                <label class="govuk-label govuk-checkboxes__label" for="status-completed">
+                  Completed
+                </label>
+              </div>
+
+              <div class="govuk-checkboxes__item">
+                <input class="govuk-checkboxes__input filter-checkbox" id="status-overdue" name="status" type="checkbox" value="OVERDUE">
+                <label class="govuk-label govuk-checkboxes__label" for="status-overdue">
+                  Overdue
+                </label>
+              </div>
+
+            </div>
+          </fieldset>
         </div>
       </div>
 

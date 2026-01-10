@@ -44,21 +44,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const tableBody = document.getElementById('task-list-body');
   const createForm = document.getElementById('create-task-form');
   const editForm = document.getElementById('edit-task-form');
-  const filterSelect = document.getElementById('status-filter');
+  
+  // Note: We removed 'filterSelect' because we now have multiple checkboxes
 
   // --- A. HOMEPAGE LOGIC ---
   if (tableBody) {
     fetchTasks();
     
-    // Attach Filter Listener
-    if (filterSelect) {
-      filterSelect.addEventListener('change', () => applyFilterAndRender());
-    }
+    // NEW: Select ALL filter checkboxes by class name
+    const checkboxes = document.querySelectorAll('.filter-checkbox');
+    
+    // Attach a listener to EVERY checkbox
+    checkboxes.forEach(box => {
+      box.addEventListener('change', () => applyFilterAndRender());
+    });
   }
 
   // --- B. CREATE PAGE LOGIC ---
   if (createForm) {
-    // This explicitly binds the submit event to our validation function
     createForm.addEventListener('submit', handleCreateTask);
   }
 
@@ -67,13 +70,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const taskId = document.getElementById('task-id').value;
     const deleteBtn = document.getElementById('delete-task-btn');
 
-    // Load existing data
     loadTaskForEdit(taskId);
     
-    // Handle Save
+    // NEW: Listen for screen resize to adjust the History scroll height
+    window.addEventListener('resize', adjustHistoryHeight);
+
     editForm.addEventListener('submit', (e) => handleEditSubmit(e, taskId));
 
-    // Handle Delete
     if (deleteBtn) {
       deleteBtn.addEventListener('click', () => handleDeleteClick(taskId));
     }
@@ -459,16 +462,37 @@ async function fetchTasks() {
     const response = await fetch('/api/tasks');
     window.currentTasks = await response.json(); 
     
-    // Update the dashboard stat immediately
     updateOverdueCount(window.currentTasks);
 
-    // Initial Render
+    // NEW: Restore user's previous selection (if any)
+    restoreFilterState();
+
+    // Now render based on those restored checkboxes
     applyFilterAndRender();
   } catch (error) {
     console.error('Error loading tasks:', error);
   }
 }
+// Restores filter state from sessionStorage on page load
+function restoreFilterState() {
+  const savedJSON = sessionStorage.getItem('taskFilters');
+  
+  // If nothing is saved, do nothing (Respect the HTML defaults: Pending + In Progress)
+  if (!savedJSON) return;
 
+  const savedValues = JSON.parse(savedJSON);
+  const checkboxes = document.querySelectorAll('.filter-checkbox');
+
+  checkboxes.forEach(box => {
+    // If the value is in our saved list, check it. Otherwise, uncheck it.
+    if (savedValues.includes(box.value)) {
+      box.checked = true;
+    } else {
+      box.checked = false;
+    }
+  });
+}
+// Updates the sort icons in the table headers
 function sortTable(column) {
   // Toggle direction if clicking the same column, else default to 'asc'
   if (currentSort.field === column) {
@@ -484,59 +508,66 @@ function sortTable(column) {
   // Re-run the Pipeline
   applyFilterAndRender();
 }
-// PIPELINE: Filters Data -> Sorts Data -> Renders Data
+
 function applyFilterAndRender() {
-  const filterSelect = document.getElementById('status-filter');
-  const filterValue = filterSelect ? filterSelect.value : 'ALL';
-  
-  // 1. CREATE A COPY (Don't mutate the global window.currentTasks)
+  // 1. Get all CHECKED boxes
+  const checkedBoxes = document.querySelectorAll('.filter-checkbox:checked');
+  const selectedValues = Array.from(checkedBoxes).map(cb => cb.value);
+  // Store the array of strings, e.g., ["PENDING", "OVERDUE"]
+  sessionStorage.setItem('taskFilters', JSON.stringify(selectedValues));
+  // 2. Start with a COPY of the data
   let tasks = [...(window.currentTasks || [])];
-  
-  // 2. FILTER
-  if (filterValue !== 'ALL') {
-    if (filterValue === 'OVERDUE') {
-      const now = new Date();
-      tasks = tasks.filter(t => t.status !== 'COMPLETED' && new Date(t.due_date) < now);
-    } else {
-      tasks = tasks.filter(t => t.status === filterValue);
-    }
+
+  // 3. FILTER LOGIC
+  if (selectedValues.length === 0) {
+    // If nothing is checked, show nothing (cleaner than showing everything)
+    tasks = []; 
+  } else {
+    // Check if "OVERDUE" is among the checked boxes
+    const showOverdueOnly = selectedValues.includes('OVERDUE');
+
+    tasks = tasks.filter(t => {
+      // A. Does the task status match one of the selected checkboxes?
+      // (We ignore 'OVERDUE' here because it's not a database status)
+      const matchesStatus = selectedValues.includes(t.status);
+      
+      // B. Strict Overdue Check
+      if (showOverdueOnly) {
+        const isOverdue = t.status !== 'COMPLETED' && new Date(t.due_date) < new Date();
+        // Return TRUE only if it matches the status AND is overdue
+        return matchesStatus && isOverdue;
+      }
+      
+      // If Overdue is NOT checked, just return based on status
+      return matchesStatus;
+    });
   }
 
-  // 3. SORT (The Fixed "Senior" Logic)
+  // 4. SORT (Standard logic)
   tasks.sort((a, b) => {
     let valA = a[currentSort.field];
     let valB = b[currentSort.field];
 
-    // Handle Nulls (Push to bottom)
-    if (valA == null) return 1;
-    if (valB == null) return -1;
+    if (valA == null) return 1; if (valB == null) return -1;
 
-    // A. Numeric Sort (Fixes "1, 10, 2" bug)
     if (currentSort.field === 'id') {
       return (Number(valA) - Number(valB)) * (currentSort.direction === 'asc' ? 1 : -1);
     }
-
-    // B. Date Sort (Uses Timestamps for accuracy)
     if (currentSort.field === 'due_date' || currentSort.field === 'created_at') {
-      const dateA = new Date(valA).getTime();
-      const dateB = new Date(valB).getTime();
-      return (dateA - dateB) * (currentSort.direction === 'asc' ? 1 : -1);
+      return (new Date(valA).getTime() - new Date(valB).getTime()) * (currentSort.direction === 'asc' ? 1 : -1);
     }
-
-    // C. String Sort (Case Insensitive)
     if (typeof valA === 'string') {
-      valA = valA.toLowerCase();
-      valB = valB.toLowerCase();
+      valA = valA.toLowerCase(); valB = valB.toLowerCase();
     }
-
     if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
     if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
     return 0;
   });
 
-  // 4. RENDER
+  // 5. RENDER
   renderTable(tasks);
 }
+// Updates the overdue task count in the dashboard
 function updateOverdueCount(tasks) {
   const container = document.getElementById('overdue-stat-box'); // The column div
   const countEl = document.getElementById('overdue-count');      // The number span
@@ -557,6 +588,7 @@ function updateOverdueCount(tasks) {
       container.style.display = 'none';
   }
 }
+// Renders the task table based on the provided tasks array
 function renderTable(tasks) {
   const tableBody = document.getElementById('task-list-body');
   tableBody.innerHTML = ''; 
@@ -597,6 +629,7 @@ function renderTable(tasks) {
     tableBody.appendChild(row);
   });
 }
+// Updates the overdue task count in the dashboard
 function updateOverdueCount(tasks) {
   const container = document.getElementById('overdue-stat-box');
   const countEl = document.getElementById('overdue-count');
@@ -617,7 +650,7 @@ function updateOverdueCount(tasks) {
       container.style.display = 'none';
   }
 }
-
+// Updates the sort icons in the table headers
 function updateSortIcons(activeColumn, dir) {
   // 1. Clean up old arrows
   const buttons = document.querySelectorAll('.app-table-sort-button');
