@@ -1,7 +1,12 @@
 // Global State
 let currentTasks = [];
 let sortDirection = {}; 
-
+// SHARED CONSTANTS (Single Source of Truth)
+const STATUS_LABELS = {
+  'PENDING': 'Pending',
+  'IN_PROGRESS': 'In Progress',
+  'COMPLETED': 'Completed'
+};
 document.addEventListener('DOMContentLoaded', () => {
   // 1. Identify active page elements
   const tableBody = document.getElementById('task-list-body');
@@ -188,19 +193,74 @@ async function handleCreateTask(event) {
 // 3. EDIT & DELETE LOGIC
 // ==========================================
 async function loadTaskForEdit(id) {
-  const res = await fetch(`/api/tasks/${id}`);
-  const task = await res.json();
-  
-  document.getElementById('title').value = task.title;
-  document.getElementById('description').value = task.description || '';
-  document.getElementById('status').value = task.status;
-  
-  if(task.due_date) {
-    const dateField = document.getElementById('due_date');
-    dateField.value = task.due_date;
-    // CRITICAL: Store original date so validation knows if it changed
-    dateField.setAttribute('data-original-date', task.due_date); 
+  try {
+    // 1. Fetch Task AND History in parallel (Good "High Code" practice)
+    const [taskRes, historyRes] = await Promise.all([
+      fetch(`/api/tasks/${id}`),
+      fetch(`/api/tasks/${id}/history`)
+    ]);
+
+    if (!taskRes.ok) throw new Error("Failed to load task");
+
+    const task = await taskRes.json();
+    
+    // Populate Form
+    document.getElementById('title').value = task.title;
+    document.getElementById('description').value = task.description || '';
+    document.getElementById('status').value = task.status;
+    
+    if(task.due_date) {
+      const dateField = document.getElementById('due_date');
+      dateField.value = task.due_date;
+      dateField.setAttribute('data-original-date', task.due_date); 
+    }
+
+    // 2. Render History if available
+    if (historyRes.ok) {
+      const history = await historyRes.json();
+      renderHistory(history);
+    }
+
+  } catch (error) {
+    console.error("Error loading edit page:", error);
   }
+}
+
+// Add this new helper function
+function renderHistory(historyItems) {
+  const container = document.getElementById('history-container');
+  
+  if (historyItems.length === 0) {
+    container.innerHTML = '<p class="govuk-body-s">No history available.</p>';
+    return;
+  }
+
+  const html = historyItems.map(item => {
+    const date = new Date(item.changed_at).toLocaleString('en-GB', {
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
+    
+    let displayText = item.change_summary;
+
+    // USE GLOBAL CONSTANT HERE:
+    Object.keys(STATUS_LABELS).forEach(code => {
+      if (displayText.includes(code)) {
+        displayText = displayText.replaceAll(code, STATUS_LABELS[code]);
+      }
+    });
+    return `
+      <div class="govuk-!-margin-bottom-4">
+        <p class="govuk-body-s govuk-!-margin-bottom-1" style="font-weight:bold;">
+          ${item.change_summary}
+        </p>
+        <span class="govuk-body-xs" style="color: #505a5f;">
+          ${date}
+        </span>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = html;
 }
 // Regex: Allows Alphanumeric + space + common punctuation (.,:;_-)
 // Blocks: @ / ! $ % etc.
@@ -382,12 +442,6 @@ function renderTable(tasks) {
   const tableBody = document.getElementById('task-list-body');
   tableBody.innerHTML = ''; 
 
-  const statusLabels = {
-    'PENDING': 'Pending',
-    'IN_PROGRESS': 'In Progress',
-    'COMPLETED': 'Completed'
-  };
-
   tasks.forEach(task => {
     const row = document.createElement('tr');
     row.className = 'govuk-table__row';
@@ -398,9 +452,8 @@ function renderTable(tasks) {
     let statusClass = "govuk-tag--grey";
     if (task.status === 'COMPLETED') statusClass = "govuk-tag--green";
     if (task.status === 'IN_PROGRESS') statusClass = "govuk-tag--blue";
-
-    const displayStatus = statusLabels[task.status] || task.status;
-
+    const displayStatus = STATUS_LABELS[task.status] || task.status;
+    
     // MATCHES YOUR NEW HTML STRUCTURE (6 Columns)
     row.innerHTML = `
       <td class="govuk-table__cell">${task.id}</td>
