@@ -27,6 +27,137 @@ const taskSchema = z.object({
 });
 
 const TaskController = {
+  getCreatePage: (req, res) => {
+    res.render('create.html', { 
+      errors: {}, 
+      task: {} // Empty object so the form fields are blank
+    });
+  },
+
+  // POST: Handle the Create Task Form Submission
+postCreateTask: async (req, res) => {
+    try {
+      // 1. Zod Validation
+      const validation = taskSchema.safeParse(req.body);
+
+    if (!validation.success) {
+        const fieldErrors = validation.error.flatten().fieldErrors;
+        return res.render('create.html', {
+          errors: fieldErrors, 
+          task: req.body,
+          errorList: Object.values(fieldErrors).flat().map(msg => ({ text: msg, href: "#" }))
+        });
+      }
+
+      // 2. Business Logic: Future Date Check
+      const data = validation.data;
+      const selectedTs = new Date(data.due_date).getTime();
+      const nowTs = new Date().getTime();
+
+      // DEBUGGING: Check your terminal to see these values
+      console.log(`[Create Task] Input: ${data.due_date}`);
+      console.log(`[Create Task] Selected TS: ${selectedTs}, Now TS: ${nowTs}`);
+      console.log(`[Create Task] Is Past? ${selectedTs < nowTs}`);
+
+      // CHECK: If date is Invalid (NaN) OR in the past
+      if (isNaN(selectedTs) || selectedTs < nowTs) {
+         return res.render('create.html', {
+           task: req.body, // Keep the form filled
+           errors: { due_date: ["Due date must be in the future"] },
+           errorList: [{ text: "Due date must be in the future", href: "#due_date" }]
+         });
+      }
+
+      // 3. Save & Redirect
+      await TaskModel.create(data);
+      res.redirect('/'); 
+
+    } catch (error) {
+      console.error(error);
+      res.status(500).render('error.html', { message: "Server Error" });
+    }
+  },
+  // GET: Render the Edit Page (Pre-filled)
+  getEditPage: async (req, res) => {
+    try {
+      const task = await TaskModel.findById(req.params.id);
+      if (!task) return res.status(404).render('error.html', { message: "Task not found" });
+
+      // Render the edit view with the existing task data
+      res.render('edit.html', { 
+        task: task, 
+        errors: {} 
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).render('error.html', { message: "Server Error" });
+    }
+  },
+
+  // POST: Handle the Edit Form Submission
+  postEditTask: async (req, res) => {
+    try {
+      const taskId = req.params.id;
+      
+      // 1. Validate (Zod)
+      // We use .partial() because the user might not change everything (though HTML forms send everything)
+      const validation = taskSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        const fieldErrors = validation.error.flatten().fieldErrors;
+        return res.render('edit.html', {
+          task: { ...req.body, id: taskId }, // Keep user's typed data + ID
+          errors: fieldErrors,
+          errorList: Object.values(fieldErrors).flat().map(msg => ({ text: msg, href: "#" }))
+        });
+      }
+
+      // 2. Business Logic (Future Date check - ONLY if date changed)
+      const existingTask = await TaskModel.findById(taskId);
+      const newData = validation.data;
+      
+      // Check if date is being updated AND is in the past
+      if (newData.due_date && newData.due_date !== existingTask.due_date) {
+         if (new Date(newData.due_date) < new Date()) {
+             return res.render('edit.html', {
+               task: { ...req.body, id: taskId },
+               errors: { due_date: ["Due date must be in the future"] }
+             });
+         }
+      }
+
+      // 3. Update & Redirect
+      // We merge the old task with the new data to ensure we have a complete object for the update
+      await TaskModel.update(taskId, { ...existingTask, ...newData, updated_at: new Date().toISOString() });
+      
+      res.redirect('/');
+
+    } catch (error) {
+      console.error(error);
+      res.status(500).render('error.html', { message: "Could not update task." });
+    }
+  },
+  // GET: Render Delete Confirmation Page
+  getDeleteConfirmPage: async (req, res) => {
+    try {
+      const task = await TaskModel.findById(req.params.id);
+      if (!task) return res.status(404).render('error.html', { message: "Task not found" });
+
+      res.render('delete-confirm.html', { task });
+    } catch (error) {
+      console.error(error);
+      res.status(500).render('error.html', { message: "Server Error" });
+    }
+  },
+  // POST: Handle Delete (SSR Style)
+  postDeleteTask: async (req, res) => {
+    try {
+      await TaskModel.delete(req.params.id);
+      res.redirect('/');
+    } catch (error) {
+      res.status(500).render('error.html', { message: "Could not delete task" });
+    }
+  },
   getAllTasks: async (req, res) => {
     try {
       const tasks = await TaskModel.findAll();

@@ -4,19 +4,24 @@
 {% from "govuk/components/select/macro.njk" import govukSelect %}
 {% from "govuk/components/button/macro.njk" import govukButton %}
 {% from "govuk/components/back-link/macro.njk" import govukBackLink %}
+{% from "govuk/components/character-count/macro.njk" import govukCharacterCount %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
 
 {% block content %}
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
-    <div class="govuk-error-summary" id="error-summary" aria-labelledby="error-summary-title" role="alert" tabindex="-1" style="display: none;">
-      <h2 class="govuk-error-summary__title" id="error-summary-title">There is a problem</h2>
-      <div class="govuk-error-summary__body">
-        <ul class="govuk-list govuk-error-summary__list">
-          <li id="summary-title-error" style="display: none;"><a href="#title">Enter a task title</a></li>
-          <li id="summary-date-error" style="display: none;"><a href="#due_date">Enter a due date and time</a></li>
-        </ul>
-      </div>
-    </div>
+    
+    {% if errors and (errors | length > 0) %}
+      {{ govukErrorSummary({
+        titleText: "Error",
+        errorList: [
+          { text: errors.title[0], href: "#title" } if errors.title,
+          { text: errors.description[0], href: "#description" } if errors.description,
+          { text: errors.due_date[0], href: "#due_date" } if errors.due_date
+        ]
+      }) }}
+    {% endif %}
+
   </div>
 </div>
 
@@ -28,48 +33,80 @@
     
     <h1 class="govuk-heading-xl">Edit Task</h1>
 
-    <input type="hidden" id="task-id" value="{{ taskId }}">
+    <input type="hidden" id="task-id" value="{{ task.id }}">
 
-    <form id="edit-task-form" novalidate>
-      <div class="govuk-form-group" id="title-group">
-        <label class="govuk-label govuk-label--l" for="title">Task Title</label>
-        <p id="title-error" class="govuk-error-message" style="display: none;">
-          <span class="govuk-visually-hidden">Error:</span> Enter a task title
-        </p>
-        <input class="govuk-input" id="title" name="title" type="text">
-      </div>
+    <form action="/edit-task/{{ task.id }}" method="POST" novalidate>
+      
+      {{ govukInput({
+        label: {
+          text: "Task Title",
+          classes: "govuk-label--l"
+        },
+        id: "title",
+        name: "title",
+        classes: "govuk-input--width-full",
+        attributes: { maxlength: "100" },
+        hint: {
+          text: "Enter a brief title for the task (required)."
+        },
+        value: task.title,
+        errorMessage: { text: errors.title[0] } if errors.title else null
+      }) }}
 
-      {{ govukTextarea({
-        name: "description", id: "description",
-        label: { text: "Description", classes: "govuk-label--m" }
+      {{ govukCharacterCount({
+        name: "description",
+        id: "description",
+        maxlength: 2000,
+        label: {
+          text: "Description",
+          classes: "govuk-label--m"
+        },
+        hint: {
+          text: "Provide a detailed description of the task (optional)."
+        },
+        value: task.description
       }) }}
 
       {{ govukSelect({
-        id: "status", name: "status",
-        label: { text: "Status" },
+        id: "status",
+        name: "status",
+        label: { text: "Status", classes: "govuk-label--m" },
         items: [
-          { value: "PENDING", text: "Pending" },
-          { value: "IN_PROGRESS", text: "In Progress" },
-          { value: "COMPLETED", text: "Completed" }
+          { value: "PENDING", text: "Pending", selected: task.status == 'PENDING' },
+          { value: "IN_PROGRESS", text: "In Progress", selected: task.status == 'IN_PROGRESS' },
+          { value: "COMPLETED", text: "Completed", selected: task.status == 'COMPLETED' }
         ]
       }) }}
 
-      <div class="govuk-form-group" id="due-date-group">
-        <label class="govuk-label" for="due_date">Due Date</label>
-        <p id="due-date-error" class="govuk-error-message" style="display: none;">
-          <span class="govuk-visually-hidden">Error:</span> Enter a due date and time
+      <div class="govuk-form-group {% if errors.due_date %}govuk-form-group--error{% endif %}" id="due-date-group">
+        <label class="govuk-label govuk-label--m" for="due_date">Due Date</label>
+        
+        {% if errors.due_date %}
+        <p class="govuk-error-message">
+          <span class="govuk-visually-hidden">Error:</span> {{ errors.due_date[0] }}
         </p>
-        <input class="govuk-input govuk-input--width-20" id="due_date" name="due_date" type="datetime-local">
+        {% endif %}
+
+        <input class="govuk-input govuk-input--width-20 {% if errors.due_date %}govuk-input--error{% endif %}" 
+               id="due_date" name="due_date" type="datetime-local" 
+               value="{{ task.due_date }}">
       </div>
 
       <div class="govuk-button-group">
         {{ govukButton({ text: "Save Changes" }) }}
-        <button type="button" class="govuk-button govuk-button--warning" id="delete-task-btn">Delete task</button>
+        
+        {{ govukButton({
+          text: "Delete task",
+          classes: "govuk-button--warning",
+          href: "/delete-task/" + task.id + "/confirm"
+        }) }}
+        
       </div>
+
     </form>
   </div>
 
-  <div class="govuk-grid-column-one-third">
+    <div class="govuk-grid-column-one-third">
       <aside class="app-related-items" role="complementary">
         <h2 class="govuk-heading-m" id="subsection-title">Task History</h2>
         

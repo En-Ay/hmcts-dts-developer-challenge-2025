@@ -41,26 +41,33 @@ const swaggerOptions = {
   // This looks for the JSDoc comments we wrote in the routes folder
   apis: ['./src/routes/*.js'], 
 };
+// Initialize swagger-jsdoc
 const swaggerDocs = swaggerJsdoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
-// Routes
+// --- ROUTES ---
 const taskRoutes = require('./routes/tasks');
-app.use('/api/tasks', taskRoutes);
+const pageRoutes = require('./routes/pages'); 
 
-// Home Route (Temporary redirect to API docs until we build the frontend)
-// Serve the Frontend Views
-app.get('/', (req, res) => {
-  res.render('index.html');
+// Mount the Routes
+app.use('/api/tasks', taskRoutes); // API Endpoints (Swagger, Fetch)
+app.use('/', pageRoutes);          // HTML Pages (SSR)
+
+// --- ERROR HANDLERS ---
+
+// Global 404 Handler (Must be after all other routes)
+app.use((req, res, next) => {
+  res.status(404).render('error.html', { 
+    message: "Page not found. If you typed the web address, check it is correct." 
+  });
 });
 
-// Serve the Create Task page (we will build this next)
-app.get('/create-task', (req, res) => {
-  res.render('create.html');
+// Global 500 Handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).render('error.html', { 
+    message: "Something went wrong. Please try again later." 
+  });
 });
-// Serve Edit Page
-app.get('/edit-task/:id', (req, res) => {
-  // Pass the ID to the template so JS knows which task to fetch
-  res.render('edit.html', { taskId: req.params.id });
-});
+
 module.exports = app;
