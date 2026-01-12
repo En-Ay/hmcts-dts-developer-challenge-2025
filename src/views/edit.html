@@ -88,8 +88,8 @@
         {% endif %}
 
         <input class="govuk-input govuk-input--width-20 {% if errors.due_date %}govuk-input--error{% endif %}" 
-               id="due_date" name="due_date" type="datetime-local" 
-               value="{{ task.due_date_input }}">
+              id="due_date" name="due_date" type="datetime-local" 
+              data-iso="{{ task.due_date }}">
       </div>
 
       <div class="govuk-button-group">

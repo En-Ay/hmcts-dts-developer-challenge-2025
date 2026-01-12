@@ -102,9 +102,9 @@
         {% endif %}
 
         <input class="govuk-input govuk-input--width-20 {% if errors.due_date %}govuk-input--error{% endif %}" 
-               id="due_date" name="due_date" type="datetime-local" 
-               aria-describedby="date-hint {% if errors.due_date %}due-date-error{% endif %}"
-               value="{{ task.due_date }}">
+              id="due_date" name="due_date" type="datetime-local" 
+              aria-describedby="date-hint {% if errors.due_date %}due-date-error{% endif %}"
+              data-iso="{{ task.due_date }}">
       </div>
 
       {{ govukButton({ text: "Save Task" }) }}

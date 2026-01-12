@@ -1,4 +1,5 @@
 const TaskModel = require('../models/taskModel');
+const assertUTC = require('../filters/assertUTC');
 const { z } = require('zod');
 // REGEX Patterns:
 // ^ ... $  : Match start to end
@@ -15,15 +16,26 @@ const taskSchema = z.object({
     .min(1, "Title is required")
     .max(100, "Title must be 100 characters or less")
     .regex(TITLE_REGEX, "Title contains invalid characters (check for special symbols)"),
-    
+
   description: z.string()
     .max(2000, "Description must be 2000 characters or less")
     .regex(DESC_REGEX, "Description contains invalid characters")
     .optional()
     .or(z.literal('')),
-    
+
   status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED']).default('PENDING'),
-  due_date: z.string().min(1, "Due date is required") 
+
+  // UTC validation enforced via the helper
+  due_date: z.string()
+    .min(1, "Due date is required")
+    .refine(val => {
+      try {
+        assertUTC(val);
+        return true;
+      } catch {
+        return false;
+      }
+    }, { message: "Due date must be a UTC ISO string ending with 'Z'" })
 });
 // ==========================================
 // CONFIG: Audit Logging Logic
@@ -42,43 +54,24 @@ const AUDIT_CONFIG = {
     // Compare timestamps to ignore string format differences
     isEqual: (a, b) => new Date(a).getTime() === new Date(b).getTime(),
     // Formatter: "27 Mar 2025, 10:00"
-    format: (val) => new Date(val).toLocaleString('en-GB', { 
-      day: 'numeric', month: 'short', year: 'numeric', 
-      hour: '2-digit', minute: '2-digit'
-    })
+    format: (val) => {
+      if (!val) return val;
+      const d = new Date(val);
+
+      return d.toLocaleString('en-GB', {
+        timeZone: 'UTC',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }) + ' UTC';
+    }
   }
 };
 // --- HELPER FUNCTIONS ---
-// 1. INPUT (System Time) -> DATABASE (UTC)
-const toUTC = (localString) => {
-  if (!localString) return null;
-  
-  // Creates a date using YOUR System Time
-  const d = new Date(localString);
-  
-  // .toISOString() automatically handles the conversion to UTC
-  return d.toISOString();
-};
 
-// 2. DATABASE (UTC) -> EDIT FORM (System Time)
-// We extract the hours/minutes using local getters to match what you originally typed.
-const toLocalInputValue = (utcString) => {
-  if (!utcString) return '';
-  
-  const d = new Date(utcString);
-  
-  const pad = (n) => n.toString().padStart(2, '0');
-
-  // getFullYear(), getHours() etc. use Your System Time.
-  // This reverses the logic of toUTC perfectly.
-  const year = d.getFullYear();
-  const month = pad(d.getMonth() + 1); 
-  const day = pad(d.getDate());
-  const hours = pad(d.getHours());     
-  const minutes = pad(d.getMinutes()); 
-
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-};
 // Helper function to detect changes
 function generateChangeLog(original, incoming) {
   const changes = [];
@@ -111,9 +104,12 @@ function generateChangeLog(original, incoming) {
 // ==========================================
 const TaskController = {
   getCreatePage: (req, res) => {
-    const now = new Date();
-    now.setHours(now.getHours() + 1);
-    const defaultDate = now.toISOString().slice(0, 16);
+  const now = new Date();
+  const pad = n => n.toString().padStart(2, '0');
+
+  const defaultDate =
+    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T` +
+    `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
     res.render('create.html', { 
       errors: {}, 
@@ -136,7 +132,6 @@ const TaskController = {
       }
 
       const data = validation.data;
-      
       // LOGIC: Validate Future Date using the Date Object
       if (new Date(data.due_date) < new Date()) {
          return res.render('create.html', {
@@ -145,9 +140,6 @@ const TaskController = {
            errorList: [{ text: "Due date must be in the future", href: "#due_date" }]
          });
       }
-
-      // *** TRANSFORM: Convert to UTC before saving ***
-      data.due_date = toUTC(data.due_date);
 
       await TaskModel.create(data);
       res.redirect('/'); 
@@ -161,10 +153,6 @@ const TaskController = {
     try {
       const task = await TaskModel.findById(req.params.id);
       if (!task) return res.status(404).render('error.html', { message: "Task not found" });
-
-      // *** TRANSFORM: Prepare the date specifically for the HTML Input ***
-      // We add a new property 'due_date_input' just for the form value
-      task.due_date_input = toLocalInputValue(task.due_date);
 
       res.render('edit.html', { task, errors: {} });
     } catch (error) {
@@ -200,12 +188,6 @@ const TaskController = {
                errors: { due_date: ["Due date must be in the future"] }
              });
          }
-      }
-
-      // *** TRANSFORM: Convert to UTC before updating ***
-      // Only if due_date is present (it is required by Zod, but good safety)
-      if (newData.due_date) {
-        newData.due_date = toUTC(newData.due_date);
       }
 
       await TaskModel.update(taskId, { ...existingTask, ...newData, updated_at: new Date().toISOString() });
@@ -305,13 +287,13 @@ const TaskController = {
     // API ENDPOINT
     try {
       const validatedData = taskSchema.parse(req.body);
+        
       if (new Date(validatedData.due_date) < new Date()) {
         return res.status(400).json({ errors: [{ message: "Due date must be in the future" }] });
       }
-      // TRANSFORM API INPUT TOO
-      validatedData.due_date = toUTC(validatedData.due_date);
 
       const newTask = await TaskModel.create(validatedData);
+      
       res.status(201).json(newTask);
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ errors: error.errors });
@@ -320,19 +302,17 @@ const TaskController = {
   },
 
   updateTask: async (req, res) => {
-    // API ENDPOINT
     try {
       const validatedData = taskSchema.partial().parse(req.body);
       const id = req.params.id;
       const existingTask = await TaskModel.findById(id);
-      if (!existingTask) return res.status(404).json({ error: "Task not found" });
 
       if (validatedData.due_date) {
-         if (new Date(validatedData.due_date) < new Date()) {
-            return res.status(400).json({ errors: [{ message: "Future date required" }] });
-         }
-         // TRANSFORM
-         validatedData.due_date = toUTC(validatedData.due_date);
+
+        // Validate future date
+        if (new Date(validatedData.due_date) < new Date()) {
+          return res.status(400).json({ errors: [{ message: "Future date required" }] });
+        }
       }
       
       // ... Audit logic ...

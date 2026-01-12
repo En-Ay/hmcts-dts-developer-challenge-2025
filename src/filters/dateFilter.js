@@ -5,16 +5,19 @@ module.exports = function (isoString) {
 
   const date = new Date(isoString);
 
-  // Invalid date check
-  if (isNaN(date.getTime())) return isoString.replace("T", " ");
+  // Safety check
+  if (isNaN(date.getTime())) return isoString;
 
-  // SIMPLE LOGIC: Use System Time (matches your Browser/Task History)
+  // STRICTLY use UTC. 
+  // This prevents the server (London/Azure) from shifting the time.
   return date.toLocaleString('en-GB', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: false
+    hour12: false,
+    timeZone: 'UTC',       // <--- The Critical Fix
+    timeZoneName: 'short'  // <--- Adds "UTC" to the end
   });
 };

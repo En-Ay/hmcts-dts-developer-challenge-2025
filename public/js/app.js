@@ -20,24 +20,93 @@ document.addEventListener('DOMContentLoaded', () => {
     window.GOVUKFrontend.initAll();
   }
 
-  // 2. Identify active page elements
+  // ==========================================
+  // 2. CLIENT-SIDE HYDRATION (The Fix)
+  // ==========================================
+  
+  // A. HYDRATE READ-ONLY DATES (Index Page)
+  // Finds elements with class "js-local-date" and renders friendly text
+  document.querySelectorAll('.js-local-date').forEach(el => {
+    const isoStr = el.getAttribute('data-iso');
+    if (isoStr) {
+      const date = new Date(isoStr);
+      if (!isNaN(date.getTime())) {
+        el.textContent = date.toLocaleString('en-GB', DATE_OPTIONS);
+      }
+    }
+  });
+
+  // B. HYDRATE INPUT FIELDS (Edit/Create Pages)
+  // Finds inputs with data-iso and sets their value to "YYYY-MM-DDTHH:MM" (Local Time)
+  const dateInputs = document.querySelectorAll('input[type="datetime-local"]');
+  dateInputs.forEach(input => {
+    const isoStr = input.getAttribute('data-iso');
+    if (isoStr) {
+      const d = new Date(isoStr);
+      if (!isNaN(d.getTime())) {
+        // Convert the stored UTC ISO string into the correct input value for <input type="datetime-local">
+        const date = new Date(isoStr); // isoStr is already UTC
+        const pad = (n) => n.toString().padStart(2, '0');
+
+        // Get the local components for datetime-local input (must be LOCAL time)
+        const localValue = `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        input.value = localValue;
+      }
+    }
+  });
+
+  // C. INTERCEPT FORM SUBMISSION
+  // Converts the User's Local Input -> UTC ISO String for the Server
+  const forms = document.querySelectorAll('form');
+  forms.forEach(form => {
+    form.addEventListener('submit', (e) => {
+      const dateInput = form.querySelector('input[type="datetime-local"]');
+      
+      // Only intervene if date input has a value
+      if (dateInput && dateInput.value) {
+        // Create a HIDDEN input to send the true ISO string
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'due_date'; // This name overrides the visible input
+        
+        // Convert Browser Local Time -> UTC ISO
+        hiddenInput.value = new Date(dateInput.value).toISOString();
+        
+        // Remove the name attribute from the visible input so it is NOT sent
+        dateInput.removeAttribute('name');
+        
+        form.appendChild(hiddenInput);
+      }
+    });
+  });
+
+  // ==========================================
+  // 3. PAGE LOGIC
+  // ==========================================
+
+  // Identify active page elements
   const tableBody = document.getElementById('task-list-body');
   const historyContainer = document.getElementById('history-container');
-  const taskIdInput = document.getElementById('task-id'); // <--- The Hidden Input
+  const taskIdInput = document.getElementById('task-id'); 
 
   // --- A. HOMEPAGE LOGIC ---
   if (tableBody) {
-    fetchTasks();
+    // Note: ensure fetchTasks() is defined if you use it, otherwise this line will error.
+    if (typeof fetchTasks === 'function') {
+        fetchTasks();
+    }
     
     // Select ALL filter checkboxes
     const checkboxes = document.querySelectorAll('.filter-checkbox');
     checkboxes.forEach(box => {
-      box.addEventListener('change', () => applyFilterAndRender());
+      // Note: ensure applyFilterAndRender is defined
+      if (typeof applyFilterAndRender === 'function') {
+        box.addEventListener('change', () => applyFilterAndRender());
+      }
     });
   }
 
   // --- B. EDIT PAGE LOGIC (History) ---
-  // We check for the container AND the hidden ID input
   if (historyContainer && taskIdInput) {
     const taskId = taskIdInput.value;
     
@@ -48,11 +117,13 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', adjustHistoryHeight);
   }
 
-});
+}); // <--- END OF DOMContentLoaded (This was missing/misplaced in your snippet)
+
 
 // ==========================================
-// 1. HELPERS
+// 4. HELPER FUNCTIONS
 // ==========================================
+
 function formatDisplayDate(isoString) {
   if (!isoString) return 'N/A';
   const date = new Date(isoString);
@@ -65,10 +136,10 @@ function adjustHistoryHeight() {
   if(container) container.style.maxHeight = (window.innerHeight - 300) + 'px';
 }
 
+// ==========================================
+// 5. HISTORY FUNCTIONS
+// ==========================================
 
-// ==========================================
-// 3. HISTORY LOGIC (Extracted from old loadTaskForEdit)
-// ==========================================
 async function fetchTaskHistory(id) {
   const container = document.getElementById('history-container');
   try {

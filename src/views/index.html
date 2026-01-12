@@ -234,7 +234,11 @@
                 {% endif %}
             </td>
             
-            <td class="govuk-table__cell">{{ task.due_date | date }}</td>
+            <td class="govuk-table__cell">
+              <span class="js-local-date" data-iso="{{ task.due_date }}">
+                {{ task.due_date | date }} 
+              </span>
+            </td>
             
             <td class="govuk-table__cell">
               <a href="/edit-task/{{ task.id }}" class="govuk-link">Edit</a>
