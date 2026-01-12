@@ -25,17 +25,74 @@ const taskSchema = z.object({
   status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED']).default('PENDING'),
   due_date: z.string().min(1, "Due date is required") 
 });
+// ==========================================
+// CONFIG: Audit Logging Logic
+// ==========================================
+// Defined at the top level so the Controller can see it
+const AUDIT_CONFIG = {
+  title: { label: "Title" },
+  description: { label: "Description" },
+  status: { 
+    label: "Status",
+    // Formatter: "IN_PROGRESS" -> "In Progress"
+    format: (val) => val ? val.replace('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) : val
+  },
+  due_date: { 
+    label: "Due date",
+    // Compare timestamps to ignore string format differences
+    isEqual: (a, b) => new Date(a).getTime() === new Date(b).getTime(),
+    // Formatter: "27 Mar 2025, 10:00"
+    format: (val) => new Date(val).toLocaleString('en-GB', { 
+      day: 'numeric', month: 'short', year: 'numeric', 
+      hour: '2-digit', minute: '2-digit'
+    })
+  }
+};
 
+// Helper function to detect changes
+function generateChangeLog(original, incoming) {
+  const changes = [];
+
+  Object.keys(incoming).forEach(key => {
+    const config = AUDIT_CONFIG[key];
+    if (!config) return; // Skip fields we don't track
+
+    const oldVal = original[key];
+    const newVal = incoming[key];
+
+    // 1. Check Equality (Custom logic or strict equality)
+    const isSame = config.isEqual 
+      ? config.isEqual(oldVal, newVal) 
+      : oldVal === newVal;
+
+    if (!isSame) {
+      // 2. Format output
+      const fromText = config.format ? config.format(oldVal) : oldVal;
+      const toText = config.format ? config.format(newVal) : newVal;
+
+      changes.push(`${config.label} changed from '${fromText}' to '${toText}'`);
+    }
+  });
+
+  return changes;
+}
+// ==========================================
+// CONTROLLER
+// ==========================================
 const TaskController = {
   getCreatePage: (req, res) => {
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+    const defaultDate = now.toISOString().slice(0, 16);
+
     res.render('create.html', { 
       errors: {}, 
-      task: {} // Empty object so the form fields are blank
+      task: { due_date: defaultDate } 
     });
   },
 
   // POST: Handle the Create Task Form Submission
-postCreateTask: async (req, res) => {
+  postCreateTask: async (req, res) => {
     try {
       // 1. Zod Validation
       const validation = taskSchema.safeParse(req.body);
@@ -98,37 +155,53 @@ postCreateTask: async (req, res) => {
   postEditTask: async (req, res) => {
     try {
       const taskId = req.params.id;
-      
-      // 1. Validate (Zod)
-      // We use .partial() because the user might not change everything (though HTML forms send everything)
       const validation = taskSchema.safeParse(req.body);
 
       if (!validation.success) {
         const fieldErrors = validation.error.flatten().fieldErrors;
         return res.render('edit.html', {
-          task: { ...req.body, id: taskId }, // Keep user's typed data + ID
+          task: { ...req.body, id: taskId },
           errors: fieldErrors,
           errorList: Object.values(fieldErrors).flat().map(msg => ({ text: msg, href: "#" }))
         });
       }
 
-      // 2. Business Logic (Future Date check - ONLY if date changed)
       const existingTask = await TaskModel.findById(taskId);
       const newData = validation.data;
       
-      // Check if date is being updated AND is in the past
-      if (newData.due_date && newData.due_date !== existingTask.due_date) {
-         if (new Date(newData.due_date) < new Date()) {
+      const utcInputString = newData.due_date.endsWith('Z') ? newData.due_date : newData.due_date + 'Z';
+      const newTs = new Date(utcInputString).getTime();
+      const oldTs = new Date(existingTask.due_date).getTime();
+
+      if (newTs !== oldTs) {
+         const nowTs = Date.now();
+         if (newTs < nowTs) {
              return res.render('edit.html', {
                task: { ...req.body, id: taskId },
-               errors: { due_date: ["Due date must be in the future"] }
+               errors: { due_date: ["Due date must be in the future"] },
+               errorList: [{ text: "Due date must be in the future", href: "#due_date" }]
              });
          }
       }
 
-      // 3. Update & Redirect
-      // We merge the old task with the new data to ensure we have a complete object for the update
-      await TaskModel.update(taskId, { ...existingTask, ...newData, updated_at: new Date().toISOString() });
+      // 1. GENERATE HISTORY (This was missing!)
+      const changes = generateChangeLog(existingTask, { 
+          ...newData, 
+          due_date: new Date(utcInputString).toISOString() 
+      });
+
+      // 2. UPDATE TASK
+      await TaskModel.update(taskId, { 
+        ...existingTask, 
+        ...newData, 
+        due_date: new Date(utcInputString).toISOString(),
+        updated_at: new Date().toISOString() 
+      });
+
+      // 3. SAVE HISTORY (This was missing!)
+      if (changes.length > 0) {
+        await TaskModel.addHistory(taskId, changes.join('\n'));
+      }
       
       res.redirect('/');
 
@@ -180,14 +253,6 @@ postCreateTask: async (req, res) => {
   createTask: async (req, res) => {
     try {
       const validatedData = taskSchema.parse(req.body);
-
-      // LOGIC: New tasks MUST be in the future
-      if (new Date(validatedData.due_date) < new Date()) {
-        return res.status(400).json({ 
-          errors: [{ message: "Due date must be in the future", path: ["due_date"] }] 
-        });
-      }
-
       const newTask = await TaskModel.create(validatedData);
       res.status(201).json(newTask);
     } catch (error) {
@@ -249,69 +314,13 @@ postCreateTask: async (req, res) => {
     }
   },
   getTaskHistory: async (req, res) => {
-    try {
-      const taskId = req.params.id;
-      
-      // Check if task exists first (optional but good practice)
-      const task = await TaskModel.findById(taskId);
-      if (!task) return res.status(404).json({ error: "Task not found" });
-
-      const history = await TaskModel.getHistory(taskId);
-      res.status(200).json(history);
-    } catch (error) {
-      res.status(500).json({ error: "Internal Server Error" });
+      try {
+        const taskId = req.params.id;
+        const history = await TaskModel.getHistory(taskId);
+        res.status(200).json(history);
+      } catch (error) {
+        res.status(500).json({ error: "Internal Server Error" });
+      }
     }
-  }
-};
-
-// AUDIT LOGIC ENGINE //
-// CONFIGURATION: How each field behaves in the audit log
-const AUDIT_CONFIG = {
-  title: { label: "Title" }, // Default string comparison
-  description: { label: "Description" },
-  status: { 
-    label: "Status",
-    // Transform "IN_PROGRESS" -> "In Progress" for the log
-    format: (val) => val.replace('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) 
-  },
-  due_date: { 
-    label: "Due date",
-    // Custom comparator to handle the UTC vs String issues we solved earlier
-    isEqual: (a, b) => new Date(a).getTime() === new Date(b).getTime(),
-    // Custom formatter for the "Europe/London" requirement
-    format: (val) => new Date(val).toLocaleString('en-GB', { 
-      timeZone: 'Europe/London',
-      day: '2-digit', month: '2-digit', year: 'numeric', 
-      hour: '2-digit', minute: '2-digit'
-    })
-  }
-};
-
-// THE ENGINE: Generic function to detect changes
-function generateChangeLog(original, incoming) {
-  const changes = [];
-
-  Object.keys(incoming).forEach(key => {
-    const config = AUDIT_CONFIG[key];
-    if (!config) return; // Ignore fields we don't track (like internal IDs)
-
-    const oldVal = original[key];
-    const newVal = incoming[key];
-
-    // 1. Check for Equality (Use custom logic if provided, else strict ===)
-    const isSame = config.isEqual 
-      ? config.isEqual(oldVal, newVal) 
-      : oldVal === newVal;
-
-    if (!isSame) {
-      // 2. Format the output (Use custom formatter if provided)
-      const fromText = config.format ? config.format(oldVal) : oldVal;
-      const toText = config.format ? config.format(newVal) : newVal;
-
-      changes.push(`${config.label} changed from '${fromText}' to '${toText}'`);
-    }
-  });
-
-  return changes;
-}
+  };
 module.exports = TaskController;
