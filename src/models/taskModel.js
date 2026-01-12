@@ -31,11 +31,51 @@ const TaskModel = {
 
       return { id: result.lastID, ...task };
     },
+  // Enhanced Find All with Filtering and Sorting
+  findAll: async ({ statusFilters = [], sortBy = 'due_date', sortOrder = 'ASC' } = {}) => {
+    // 1. Security: Whitelist Sort Columns
+    const validSorts = ['id', 'title', 'status', 'due_date', 'created_at'];
+    const validOrders = ['ASC', 'DESC'];
 
-  findAll: async () => {
-    // 1. ORDER BY due_date ASC (Show urgent tasks first)
-    // 2. LIMIT 100 (Prevent server crash on large datasets)
-    return await getQuery(`SELECT * FROM tasks WHERE deleted_at IS NULL ORDER BY due_date ASC`);
+    const safeSort = validSorts.includes(sortBy) ? sortBy : 'due_date';
+    const safeOrder = validOrders.includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'ASC';
+
+    // 2. Base Query
+    let sql = `SELECT * FROM tasks WHERE deleted_at IS NULL`;
+    const params = [];
+
+    // 3. Status & Overdue Logic
+    if (statusFilters.length > 0) {
+      // Separate "Real" DB statuses from the "Virtual" OVERDUE status
+      const isOverdueSelected = statusFilters.includes('OVERDUE');
+      const dbStatuses = statusFilters.filter(s => s !== 'OVERDUE');
+
+      const orConditions = [];
+
+      // Logic A: Standard Statuses (PENDING, IN_PROGRESS, COMPLETED)
+      if (dbStatuses.length > 0) {
+        const placeholders = dbStatuses.map(() => '?').join(', ');
+        orConditions.push(`status IN (${placeholders})`);
+        params.push(...dbStatuses);
+      }
+
+      // Logic B: Overdue (Due date is in past AND not completed)
+      // We pass the current ISO time to compare against the stored string
+      if (isOverdueSelected) {
+        orConditions.push(`(due_date < ? AND status != 'COMPLETED')`);
+        params.push(new Date().toISOString());
+      }
+
+      // Combine A and B with OR (e.g. Show me PENDING tasks OR OVERDUE tasks)
+      if (orConditions.length > 0) {
+        sql += ` AND (${orConditions.join(' OR ')})`;
+      }
+    }
+
+    // 4. Apply Sort
+    sql += ` ORDER BY ${safeSort} ${safeOrder}`;
+
+    return await getQuery(sql, params);
   },
   findById: async (id) => {
     // SECURITY: Prevent accessing a deleted task via direct URL

@@ -6,10 +6,8 @@ const TaskController = require('../controllers/taskController');
 router.get('/create-task', TaskController.getCreatePage);
 router.post('/create-task', TaskController.postCreateTask);
 
-// 2. Home Page (Moving this logic out of app.js is cleaner)
-router.get('/', (req, res) => {
-  res.render('index.html');
-});
+// 2. Home Page (List of Tasks)
+router.get('/', TaskController.getHomePage);
 
 // 3. Edit Task Page
 router.get('/edit-task/:id', TaskController.getEditPage);

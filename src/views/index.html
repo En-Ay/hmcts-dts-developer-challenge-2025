@@ -61,49 +61,70 @@
       href: "/create-task",
       isStartButton: true
     }) }}
+    <form action="/" method="GET">
+      <div class="govuk-grid-row govuk-!-margin-bottom-4 govuk-!-margin-top-4" style="background-color: #f3f2f1; padding: 20px 0;">
+          
+          <div class="govuk-grid-column-one-third">
+            <div class="govuk-form-group govuk-!-margin-bottom-0">
+              <fieldset class="govuk-fieldset">
+                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">
+                  Filter by status
+                </legend>
+                <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+                  
+                  <div class="govuk-checkboxes__item">
+                    <input class="govuk-checkboxes__input" id="status-pending" name="status" type="checkbox" value="PENDING" 
+                    {{ 'checked' if selectedStatus and 'PENDING' in selectedStatus }}>
+                    <label class="govuk-label govuk-checkboxes__label" for="status-pending">
+                      Pending
+                    </label>
+                  </div>
 
-  <div class="govuk-grid-row govuk-!-margin-bottom-4 govuk-!-margin-top-4" style="background-color: #f3f2f1; padding: 20px 0;">
-      
-      <div class="govuk-grid-column-one-third">
-        <div class="govuk-form-group govuk-!-margin-bottom-0">
-          <fieldset class="govuk-fieldset">
-            <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">
-              Filter by status
-            </legend>
-            <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
-              
-              <div class="govuk-checkboxes__item">
-                <input class="govuk-checkboxes__input filter-checkbox" id="status-pending" name="status" type="checkbox" value="PENDING" checked>
-                <label class="govuk-label govuk-checkboxes__label" for="status-pending">
-                  Pending
-                </label>
-              </div>
+                  <div class="govuk-checkboxes__item">
+                    <input class="govuk-checkboxes__input" id="status-progress" name="status" type="checkbox" value="IN_PROGRESS"
+                    {{ 'checked' if selectedStatus and 'IN_PROGRESS' in selectedStatus }}>
+                    <label class="govuk-label govuk-checkboxes__label" for="status-progress">
+                      In Progress
+                    </label>
+                  </div>
 
-              <div class="govuk-checkboxes__item">
-                <input class="govuk-checkboxes__input filter-checkbox" id="status-progress" name="status" type="checkbox" value="IN_PROGRESS" checked>
-                <label class="govuk-label govuk-checkboxes__label" for="status-progress">
-                  In Progress
-                </label>
-              </div>
+                  <div class="govuk-checkboxes__item">
+                    <input class="govuk-checkboxes__input" id="status-completed" name="status" type="checkbox" value="COMPLETED"
+                    {{ 'checked' if selectedStatus and 'COMPLETED' in selectedStatus }}>
+                    <label class="govuk-label govuk-checkboxes__label" for="status-completed">
+                      Completed
+                    </label>
+                  </div>
 
-              <div class="govuk-checkboxes__item">
-                <input class="govuk-checkboxes__input filter-checkbox" id="status-completed" name="status" type="checkbox" value="COMPLETED">
-                <label class="govuk-label govuk-checkboxes__label" for="status-completed">
-                  Completed
-                </label>
-              </div>
+                  <div class="govuk-checkboxes__item">
+                    <input class="govuk-checkboxes__input" id="status-overdue" name="status" type="checkbox" value="OVERDUE"
+                    {{ 'checked' if selectedStatus and 'OVERDUE' in selectedStatus }}>
+                    <label class="govuk-label govuk-checkboxes__label" for="status-overdue">
+                      Overdue
+                    </label>
+                  </div>
 
-              <div class="govuk-checkboxes__item">
-                <input class="govuk-checkboxes__input filter-checkbox" id="status-overdue" name="status" type="checkbox" value="OVERDUE">
-                <label class="govuk-label govuk-checkboxes__label" for="status-overdue">
-                  Overdue
-                </label>
-              </div>
-
+                </div>
+              </fieldset>
             </div>
-          </fieldset>
-        </div>
+          </div>
+
+          <div class="govuk-grid-column-one-third">
+             <div class="govuk-form-group" style="margin-top: 25px;">
+                <button type="submit" class="govuk-button" data-module="govuk-button">
+                  Apply Filters
+                </button>
+                <a href="/" class="govuk-link govuk-link--no-visited-state govuk-!-margin-left-2" style="font-size: 19px; vertical-align: -webkit-baseline-middle;">
+                  Clear
+                </a>
+             </div>
+          </div>
+
       </div>
+      
+      <input type="hidden" name="sort" value="{{ currentSort }}">
+      <input type="hidden" name="order" value="{{ currentOrder }}">
+    </form>
 
       <div class="govuk-grid-column-one-third" id="overdue-stat-box" style="display: none;">
          <div class="govuk-form-group govuk-!-margin-bottom-0">
@@ -128,24 +149,59 @@
       <thead class="govuk-table__head">
         <tr class="govuk-table__row">
           
+          {% set filterParams = "" %}
+          {% for s in selectedStatus %}
+            {% set filterParams = filterParams + "&status=" + s %}
+          {% endfor %}
+
           <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 6%;">
-            <button id="sort-id" class="app-table-sort-button" onclick="sortTable('id')">ID</button>
+            {% set nextOrder = 'DESC' if currentSort == 'id' and currentOrder == 'ASC' else 'ASC' %}
+            <a href="/?sort=id&order={{ nextOrder }}{{ filterParams }}" class="app-table-sort-button">
+              ID
+              {% if currentSort == 'id' %}
+                 {{ '▼' if currentOrder == 'DESC' else '▲' }}
+              {% endif %}
+            </a>
           </th>
 
           <th scope="col" class="govuk-table__header" style="width: 28%;">
-            <button id="sort-title" class="app-table-sort-button" onclick="sortTable('title')">Title</button>
+            {% set nextOrder = 'DESC' if currentSort == 'title' and currentOrder == 'ASC' else 'ASC' %}
+            <a href="/?sort=title&order={{ nextOrder }}{{ filterParams }}" class="app-table-sort-button">
+              Title
+              {% if currentSort == 'title' %}
+                 {{ '▼' if currentOrder == 'DESC' else '▲' }}
+              {% endif %}
+            </a>
           </th>
 
           <th scope="col" class="govuk-table__header" style="width: 23%;">
-            <button id="sort-description" class="app-table-sort-button" onclick="sortTable('description')">Description</button>
+            {% set nextOrder = 'DESC' if currentSort == 'description' and currentOrder == 'ASC' else 'ASC' %}
+            <a href="/?sort=description&order={{ nextOrder }}{{ filterParams }}" class="app-table-sort-button">
+              Description
+              {% if currentSort == 'description' %}
+                 {{ '▼' if currentOrder == 'DESC' else '▲' }}
+              {% endif %}
+            </a>
           </th>
 
           <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 12%;">
-            <button id="sort-status" class="app-table-sort-button" onclick="sortTable('status')">Status</button>
+             {% set nextOrder = 'DESC' if currentSort == 'status' and currentOrder == 'ASC' else 'ASC' %}
+            <a href="/?sort=status&order={{ nextOrder }}{{ filterParams }}" class="app-table-sort-button">
+              Status
+              {% if currentSort == 'status' %}
+                 {{ '▼' if currentOrder == 'DESC' else '▲' }}
+              {% endif %}
+            </a>
           </th>
 
           <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 12%;">
-            <button id="sort-due_date" class="app-table-sort-button" onclick="sortTable('due_date')">Due Date</button>
+             {% set nextOrder = 'DESC' if currentSort == 'due_date' and currentOrder == 'ASC' else 'ASC' %}
+            <a href="/?sort=due_date&order={{ nextOrder }}{{ filterParams }}" class="app-table-sort-button">
+              Due Date
+              {% if currentSort == 'due_date' %}
+                 {{ '▼' if currentOrder == 'DESC' else '▲' }}
+              {% endif %}
+            </a>
           </th>
 
           <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 5%;">Action</th>

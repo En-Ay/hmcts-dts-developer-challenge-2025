@@ -231,8 +231,53 @@ const TaskController = {
       res.status(500).render('error.html', { message: "Could not delete task" });
     }
   },
+  // GET: Render Home Page with Task List
+  getHomePage: async (req, res) => {
+    try {
+      // 1. Parse Status Filters
+      // Express handles ?status=A&status=B as an array ['A', 'B']
+      // If one is checked, it's a string 'A'. If none, it's undefined.
+      let statuses = req.query.status;
+      
+      // Normalize to array
+      if (!statuses) {
+          // Default: If user visits homepage first time, decide what to show.
+          // For now, let's show EVERYTHING if nothing selected, or default to PENDING/IN_PROGRESS
+          statuses = []; 
+      } else if (typeof statuses === 'string') {
+          statuses = [statuses];
+      }
+
+      // 2. Parse Sort Options
+      const sort = req.query.sort || 'due_date';
+      const order = req.query.order || 'ASC';
+
+      // 3. Fetch Data
+      const tasks = await TaskModel.findAll({ 
+        statusFilters: statuses, 
+        sortBy: sort, 
+        sortOrder: order 
+      });
+
+      // 4. Render View
+      // We pass the params back to the view so the checkboxes stay checked!
+      res.render('index.html', { 
+        tasks, 
+        selectedStatus: statuses,
+        currentSort: sort,
+        currentOrder: order
+      });
+
+    } catch (error) {
+      console.error(error);
+      res.status(500).render('error.html', { message: "Server Error" });
+    }
+  },
+  // API: Get All Tasks (JSON)
   getAllTasks: async (req, res) => {
     try {
+      // The API can also benefit from the filtering logic if you want!
+      // For now, calling it empty returns everything (as per default params in Model)
       const tasks = await TaskModel.findAll();
       res.status(200).json(tasks);
     } catch (error) {
