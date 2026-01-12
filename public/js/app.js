@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 2. CLIENT-SIDE HYDRATION (The Fix)
+  // 2. CLIENT-SIDE HYDRATION
   // ==========================================
   
   // A. HYDRATE READ-ONLY DATES (Index Page)

@@ -11,7 +11,6 @@
     table-layout: fixed;
     width: 100%;
   }
-  
   /* Description Truncation */
   .app-description-truncate {
     display: -webkit-box;
@@ -61,67 +60,58 @@
       href: "/create-task",
       isStartButton: true
     }) }}
-    <form action="/" method="GET">
-      <div class="govuk-grid-row govuk-!-margin-bottom-4 govuk-!-margin-top-4" style="background-color: #f3f2f1; padding: 20px 0;">
-          
-          <div class="govuk-grid-column-one-third">
-            <div class="govuk-form-group govuk-!-margin-bottom-0">
-              <fieldset class="govuk-fieldset">
-                <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">
-                  Filter by status
-                </legend>
-                <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
-                  
-                  <div class="govuk-checkboxes__item">
-                    <input class="govuk-checkboxes__input" id="status-pending" name="status" type="checkbox" value="PENDING" 
-                    {{ 'checked' if selectedStatus and 'PENDING' in selectedStatus }}>
-                    <label class="govuk-label govuk-checkboxes__label" for="status-pending">
-                      Pending
-                    </label>
-                  </div>
+    <form action="/" method="GET" class="govuk-form-group govuk-!-margin-bottom-4">
+      <div class="govuk-grid-row govuk-!-gap-2">
 
-                  <div class="govuk-checkboxes__item">
-                    <input class="govuk-checkboxes__input" id="status-progress" name="status" type="checkbox" value="IN_PROGRESS"
-                    {{ 'checked' if selectedStatus and 'IN_PROGRESS' in selectedStatus }}>
-                    <label class="govuk-label govuk-checkboxes__label" for="status-progress">
-                      In Progress
-                    </label>
-                  </div>
+        <!-- Filter Checkboxes Column -->
+        <div class="govuk-grid-column-one-third">
+          <fieldset class="govuk-fieldset">
+            <legend class="govuk-fieldset__legend govuk-fieldset__legend--s">
+              Filter by status
+            </legend>
+            <div class="govuk-checkboxes govuk-checkboxes--small" data-module="govuk-checkboxes">
+              
+              <div class="govuk-checkboxes__item">
+                <input class="govuk-checkboxes__input" id="status-pending" name="status" type="checkbox" value="PENDING"
+                {{ 'checked' if selectedStatus and 'PENDING' in selectedStatus }}>
+                <label class="govuk-label govuk-checkboxes__label" for="status-pending">Pending</label>
+              </div>
 
-                  <div class="govuk-checkboxes__item">
-                    <input class="govuk-checkboxes__input" id="status-completed" name="status" type="checkbox" value="COMPLETED"
-                    {{ 'checked' if selectedStatus and 'COMPLETED' in selectedStatus }}>
-                    <label class="govuk-label govuk-checkboxes__label" for="status-completed">
-                      Completed
-                    </label>
-                  </div>
+              <div class="govuk-checkboxes__item">
+                <input class="govuk-checkboxes__input" id="status-progress" name="status" type="checkbox" value="IN_PROGRESS"
+                {{ 'checked' if selectedStatus and 'IN_PROGRESS' in selectedStatus }}>
+                <label class="govuk-label govuk-checkboxes__label" for="status-progress">In Progress</label>
+              </div>
 
-                  <div class="govuk-checkboxes__item">
-                    <input class="govuk-checkboxes__input" id="status-overdue" name="status" type="checkbox" value="OVERDUE"
-                    {{ 'checked' if selectedStatus and 'OVERDUE' in selectedStatus }}>
-                    <label class="govuk-label govuk-checkboxes__label" for="status-overdue">
-                      Overdue
-                    </label>
-                  </div>
+              <div class="govuk-checkboxes__item">
+                <input class="govuk-checkboxes__input" id="status-completed" name="status" type="checkbox" value="COMPLETED"
+                {{ 'checked' if selectedStatus and 'COMPLETED' in selectedStatus }}>
+                <label class="govuk-label govuk-checkboxes__label" for="status-completed">Completed</label>
+              </div>
 
-                </div>
-              </fieldset>
+              <div class="govuk-checkboxes__item">
+                <input class="govuk-checkboxes__input" id="status-overdue" name="status" type="checkbox" value="OVERDUE"
+                {{ 'checked' if selectedStatus and 'OVERDUE' in selectedStatus }}>
+                <label class="govuk-label govuk-checkboxes__label" for="status-overdue">Overdue</label>
+              </div>
+
             </div>
-          </div>
+          </fieldset>
+        </div>
 
-          <div class="govuk-grid-column-one-third">
-             <div class="govuk-form-group" style="margin-top: 25px;">
-                <button type="submit" class="govuk-button" data-module="govuk-button">
-                  Apply Filters
-                </button>
-                <a href="/" class="govuk-link govuk-link--no-visited-state govuk-!-margin-left-2" style="font-size: 19px; vertical-align: -webkit-baseline-middle;">
-                  Clear
-                </a>
-             </div>
-          </div>
+        <!-- Buttons Column -->
+        <div class="govuk-grid-column-one-third" style="display: flex; align-items: flex-end; gap: 10px;">
+          <button type="submit" class="govuk-button" data-module="govuk-button">
+            Apply Filters
+          </button>
+          <a href="/" class="govuk-button govuk-button--secondary">
+            Clear
+          </a>
+        </div>
 
       </div>
-      
+
+      <!-- Hidden inputs for sorting -->
       <input type="hidden" name="sort" value="{{ currentSort }}">
       <input type="hidden" name="order" value="{{ currentOrder }}">
     </form>
