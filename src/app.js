@@ -4,7 +4,7 @@ const nunjucks = require('nunjucks');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
-
+const dateFilter = require('./filters/dateFilter');
 const app = express();
 
 // Middleware
@@ -69,5 +69,15 @@ app.use((err, req, res, next) => {
     message: "Something went wrong. Please try again later." 
   });
 });
+// --- NUNJUCKS FILTER REGISTRATION ---
+const njkEnv = nunjucks.configure([
+  'src/views', 
+  'node_modules/govuk-frontend/dist' 
+], {
+  autoescape: true,
+  express: app
+});
 
+// Register the custom date filter
+njkEnv.addFilter('date', dateFilter);
 module.exports = app;

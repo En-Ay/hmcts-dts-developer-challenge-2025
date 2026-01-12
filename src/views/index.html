@@ -234,7 +234,7 @@
                 {% endif %}
             </td>
             
-            <td class="govuk-table__cell">{{ task.due_date | replace("T", " ") }}</td>
+            <td class="govuk-table__cell">{{ task.due_date | date }}</td>
             
             <td class="govuk-table__cell">
               <a href="/edit-task/{{ task.id }}" class="govuk-link">Edit</a>
