@@ -247,17 +247,23 @@ const TaskController = {
   },
 
 
-  // GET: Render Delete Confirmation Page
   getDeleteConfirmPage: async (req, res) => {
-    try {
-      const task = await TaskModel.findById(req.params.id);
-      if (!task) return res.status(404).render('error.html', { message: "Task not found" });
+    const taskId = parseInt(req.params.id, 10);
+    const task = await TaskModel.findById(taskId);
 
-      res.render('delete-confirm.html', { task });
-    } catch (error) {
-      console.error(error);
-      res.status(500).render('error.html', { message: "Server Error" });
+    if (!task) {
+      return res.status(404).send("Task not found");
     }
+
+    const formatDate = (d) =>
+      d ? new Date(d).toLocaleString("en-GB", { 
+        day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+      }) : "Not set";
+
+    task.created_at_formatted = formatDate(task.created_at);
+    task.due_date_formatted = formatDate(task.due_date);
+
+    res.render("delete-confirm.html", { task });
   },
   // POST: Handle Delete (SSR Style)
   postDeleteTask: async (req, res) => {
