@@ -106,17 +106,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- B. EDIT PAGE LOGIC (History) ---
-  if (historyContainer && taskIdInput) {
-    const taskId = taskIdInput.value;
-    
-    // Load History immediately
-    fetchTaskHistory(taskId);
-    
-    // Adjust height on resize
-    window.addEventListener('resize', adjustHistoryHeight);
-  }
-
 }); // <--- END OF DOMContentLoaded (This was missing/misplaced in your snippet)
 
 

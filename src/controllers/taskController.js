@@ -35,7 +35,7 @@ const taskSchema = z.object({
       } catch {
         return false;
       }
-    }, { message: "Due date must be a UTC ISO string ending with 'Z'" })
+    }, { message: "Due date must be a valid ISO string" })
 });
 // ==========================================
 // CONFIG: Audit Logging Logic
@@ -47,58 +47,58 @@ const AUDIT_CONFIG = {
   status: { 
     label: "Status",
     // Formatter: "IN_PROGRESS" -> "In Progress"
-    format: (val) => val ? val.replace('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) : val
+    format: (val) => val
+      ? val.replace(/_/g, ' ')
+           .toLowerCase()
+           .replace(/\b\w/g, c => c.toUpperCase())
+      : val,
+    // Optional: consider all status strings case-insensitively equal
+    isEqual: (a, b) => String(a).toUpperCase() === String(b).toUpperCase()
   },
   due_date: { 
     label: "Due date",
-    // Compare timestamps to ignore string format differences
-    isEqual: (a, b) => new Date(a).getTime() === new Date(b).getTime(),
-    // Formatter: "27 Mar 2025, 10:00"
+    isEqual: (a, b) => {
+      if (!a && !b) return true;
+      if (!a || !b) return false;
+      return new Date(a).getTime() === new Date(b).getTime();
+    },
     format: (val) => {
-      if (!val) return val;
+      if (!val) return '';
       const d = new Date(val);
-
       return d.toLocaleString('en-GB', {
-        timeZone: 'UTC',
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
         hour12: false
-      }) + ' UTC';
+      });
     }
   }
 };
+
 // --- HELPER FUNCTIONS ---
 
 // Helper function to detect changes
 function generateChangeLog(original, incoming) {
   const changes = [];
 
-  Object.keys(incoming).forEach(key => {
-    const config = AUDIT_CONFIG[key];
-    if (!config) return; // Skip fields we don't track
+  Object.keys(AUDIT_CONFIG).forEach(key => {
+    if (!(key in incoming)) return; // skip fields not being updated
 
+    const config = AUDIT_CONFIG[key];
     const oldVal = original[key];
     const newVal = incoming[key];
 
-    // 1. Check Equality (Custom logic or strict equality)
-    const isSame = config.isEqual 
-      ? config.isEqual(oldVal, newVal) 
-      : oldVal === newVal;
+    const isSame = config.isEqual ? config.isEqual(oldVal, newVal) : oldVal === newVal;
 
     if (!isSame) {
-      // 2. Format output
-      const fromText = config.format ? config.format(oldVal) : oldVal;
-      const toText = config.format ? config.format(newVal) : newVal;
-
+      const fromText = config.format ? config.format(oldVal) : (oldVal ?? '');
+      const toText = config.format ? config.format(newVal) : (newVal ?? '');
       changes.push(`${config.label} changed from '${fromText}' to '${toText}'`);
     }
   });
 
   return changes;
 }
+
 // ==========================================
 // CONTROLLER
 // ==========================================
@@ -121,83 +121,132 @@ const TaskController = {
   postCreateTask: async (req, res) => {
     try {
       const validation = taskSchema.safeParse(req.body);
+
       if (!validation.success) {
-        // ... (Error handling stays the same) ...
         const fieldErrors = validation.error.flatten().fieldErrors;
         return res.render('create.html', {
-          errors: fieldErrors, 
+          errors: fieldErrors,
           task: req.body,
           errorList: Object.values(fieldErrors).flat().map(msg => ({ text: msg, href: "#" }))
         });
       }
 
       const data = validation.data;
-      // LOGIC: Validate Future Date using the Date Object
-      if (new Date(data.due_date) < new Date()) {
-         return res.render('create.html', {
-           task: req.body,
-           errors: { due_date: ["Due date must be in the future"] },
-           errorList: [{ text: "Due date must be in the future", href: "#due_date" }]
-         });
+
+      // Validate future due date
+      const dueDate = new Date(data.due_date);
+      if (dueDate < new Date()) {
+        return res.render('create.html', {
+          task: req.body,
+          errors: { due_date: ["Due date must be in the future"] },
+          errorList: [{ text: "Due date must be in the future", href: "#due_date" }]
+        });
       }
 
-      await TaskModel.create(data);
-      res.redirect('/'); 
+      // Set timestamps for creation
+      const taskToCreate = {
+        ...data,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // Create task and insert SINGLE "Task created" history row
+      const newTask = await TaskModel.create(taskToCreate);
+
+      // Redirect or render success page
+      res.redirect('/');
 
     } catch (error) {
-      console.error(error);
+      console.error("Create Task Error:", error);
       res.status(500).render('error.html', { message: "Server Error" });
     }
   },
+
+
   getEditPage: async (req, res) => {
     try {
       const task = await TaskModel.findById(req.params.id);
       if (!task) return res.status(404).render('error.html', { message: "Task not found" });
 
-      res.render('edit.html', { task, errors: {} });
+      // Fetch history and map field names for the template
+      const historyRaw = await TaskModel.getHistory(req.params.id);
+      const history = historyRaw.map(h => ({
+        summary: h.change_summary,
+        changed_at: new Date(h.changed_at).toLocaleString('en-GB', {
+          timeZone: 'UTC',
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }) + ' UTC'
+      }));
+
+      res.render('edit.html', { task, errors: {}, history });
     } catch (error) {
-      console.error(error);
-      res.status(500).render('error.html', { message: "Server Error" });
+    console.log("Task:", task);
+    console.log("History:", history);
+    res.render('edit.html', { task, errors: {}, history });
     }
   },
+
 
   // POST: Handle the Edit Form Submission
   postEditTask: async (req, res) => {
     try {
-      const taskId = req.params.id;
-      const validation = taskSchema.safeParse(req.body);
+      const taskId = parseInt(req.params.id, 10);
 
+      // 1. Validate input
+      const validation = taskSchema.safeParse(req.body);
       if (!validation.success) {
-         // ... (Error handling) ...
-         const fieldErrors = validation.error.flatten().fieldErrors;
-         return res.render('edit.html', {
-           task: { ...req.body, id: taskId, due_date_input: req.body.due_date }, // Keep user's input
-           errors: fieldErrors,
-           errorList: Object.values(fieldErrors).flat().map(msg => ({ text: msg, href: "#" }))
-         });
+        const fieldErrors = validation.error.flatten().fieldErrors;
+        return res.render('edit.html', {
+          task: { ...req.body, id: taskId, due_date_input: req.body.due_date },
+          errors: fieldErrors,
+          errorList: Object.values(fieldErrors).flat().map(msg => ({ text: msg, href: "#" }))
+        });
       }
 
       const newData = validation.data;
-      const existingTask = await TaskModel.findById(taskId);
 
-      // Check future date logic
+      // 2. Fetch existing task
+      const existingTask = await TaskModel.findById(taskId);
+      if (!existingTask) return res.status(404).render('error.html', { message: "Task not found." });
+
+      // 3. Validate future due date
       if (newData.due_date && newData.due_date !== existingTask.due_date) {
-         if (new Date(newData.due_date) < new Date()) {
-             return res.render('edit.html', {
-               task: { ...req.body, id: taskId, due_date_input: req.body.due_date },
-               errors: { due_date: ["Due date must be in the future"] }
-             });
-         }
+        const due = new Date(newData.due_date);
+        if (due < new Date()) {
+          return res.render('edit.html', {
+            task: { ...req.body, id: taskId, due_date_input: req.body.due_date },
+            errors: { due_date: ["Due date must be in the future"] },
+            errorList: [{ text: "Due date must be in the future", href: "#due_date" }]
+          });
+        }
       }
 
-      await TaskModel.update(taskId, { ...existingTask, ...newData, updated_at: new Date().toISOString() });
+      // 4. Generate change summary
+      const changes = generateChangeLog(existingTask, newData);
+      const changeSummary = changes.length ? changes.join('\n') : null;
+
+      // 5. Update task in a single call
+      await TaskModel.update(
+        taskId,
+        { ...existingTask, ...newData, updated_at: new Date().toISOString() },
+        changeSummary
+      );
+
+      // 6. Redirect after successful update
       res.redirect('/');
 
     } catch (error) {
-      console.error(error);
+      console.error("Edit Task Error:", error);
       res.status(500).render('error.html', { message: "Could not update task." });
     }
   },
+
+
   // GET: Render Delete Confirmation Page
   getDeleteConfirmPage: async (req, res) => {
     try {
@@ -284,71 +333,143 @@ const TaskController = {
   },
 
   createTask: async (req, res) => {
-    // API ENDPOINT
     try {
+      // 1. Validate input with Zod (includes UTC ISO check)
       const validatedData = taskSchema.parse(req.body);
-        
-      if (new Date(validatedData.due_date) < new Date()) {
-        return res.status(400).json({ errors: [{ message: "Due date must be in the future" }] });
+
+      // 2. Ensure due_date is in the future
+      if (validatedData.due_date) {
+        const dueDate = new Date(validatedData.due_date);
+        if (dueDate < new Date()) {
+          return res.status(400).json({
+            errors: [{
+              message: "Due date must be in the future",
+              path: ["due_date"]
+            }]
+          });
+        }
       }
 
-      const newTask = await TaskModel.create(validatedData);
-      
+      // 3. Set timestamps
+      const now = new Date().toISOString();
+      const taskData = {
+        ...validatedData,
+        created_at: now,
+        updated_at: now
+      };
+
+      // 4. Create task
+      const newTask = await TaskModel.create(taskData);
+
+      // 5. Respond
       res.status(201).json(newTask);
+
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ errors: error.errors });
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ errors: error.errors });
+      }
+      console.error("Create Task Error:", error);
       res.status(500).json({ error: "Internal Server Error" });
     }
   },
 
   updateTask: async (req, res) => {
     try {
+      // 1. Validate input (partial updates allowed)
       const validatedData = taskSchema.partial().parse(req.body);
-      const id = req.params.id;
+
+      // 2. Get the task ID and existing task
+      const id = parseInt(req.params.id, 10);
       const existingTask = await TaskModel.findById(id);
+      if (!existingTask) return res.status(404).json({ error: "Task not found" });
 
-      if (validatedData.due_date) {
-
-        // Validate future date
-        if (new Date(validatedData.due_date) < new Date()) {
-          return res.status(400).json({ errors: [{ message: "Future date required" }] });
+      // 3. Validate future due_date if provided
+      if (validatedData.due_date && validatedData.due_date !== existingTask.due_date) {
+        const due = new Date(validatedData.due_date);
+        if (due < new Date()) {
+          return res.status(400).json({
+            errors: [{ message: "Due date must be in the future", path: ["due_date"] }]
+          });
         }
       }
-      
-      // ... Audit logic ...
-      // For Audit: Be careful comparing UTC to Local strings. Best to stick to DB values.
-      
-      const updatedTaskData = { ...existingTask, ...validatedData, updated_at: new Date().toISOString() };
-      await TaskModel.update(id, updatedTaskData);
-      
-      // ... Add history ...
-      
-      res.status(200).json(updatedTaskData);
-    } catch (error) {
-       // ... error handling
-       if (error instanceof z.ZodError) return res.status(400).json({ errors: error.errors });
-       res.status(500).json({ error: "Internal Server Error" });
-    }
-  },
 
-  deleteTask: async (req, res) => {
-    try {
-      const task = await TaskModel.findById(req.params.id);
-      if (!task) return res.status(404).json({ error: "Task not found" });
-      await TaskModel.delete(req.params.id);
-      res.status(204).send();
+      // 4. Generate change summary for audit
+      const changes = generateChangeLog(existingTask, validatedData);
+      const changeSummary = changes.length ? changes.join('\n') : null;
+
+      // 5. Update the task and record history in a single call
+      const updatedTask = await TaskModel.update(
+        id,
+        { ...existingTask, ...validatedData, updated_at: new Date().toISOString() },
+        changeSummary
+      );
+
+      // 6. Fetch task history
+      const historyRaw = await TaskModel.getHistory(id);
+      const history = historyRaw.map(entry => ({
+        summary: entry.change_summary,
+        changed_at: new Date(entry.changed_at).toLocaleString('en-GB', {
+          day: '2-digit', month: 'short', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', hour12: false
+        })
+      }));
+
+      // 7. Respond with updated task + history
+      res.status(200).json({ ...updatedTask, history });
+
     } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ errors: error.errors });
+      console.error("Update Error:", error);
       res.status(500).json({ error: "Internal Server Error" });
     }
   },
-  getTaskHistory: async (req, res) => {
-      try {
-        const taskId = req.params.id;
-        const history = await TaskModel.getHistory(taskId);
-        res.status(200).json(history);
-      } catch (error) {
-        res.status(500).json({ error: "Internal Server Error" });
+
+
+  deleteTask: async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.id, 10);
+      const existingTask = await TaskModel.findById(taskId);
+
+      if (!existingTask) {
+        return res.status(404).json({ error: "Task not found" });
       }
+
+      // Perform soft delete + log audit atomically
+      await TaskModel.delete(taskId);
+
+      // Respond with 204 No Content
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete Task Error:", error);
+      res.status(500).json({ error: "Internal Server Error" });
     }
-  };
+  },
+
+  getTaskHistory: async (req, res) => {
+    try {
+      const taskId = parseInt(req.params.id, 10); // Ensure integer
+      const history = await TaskModel.getHistory(taskId);
+
+      // Format timestamps for display
+      const formattedHistory = history.map(entry => ({
+        summary: entry.change_summary,
+        changed_at: new Date(entry.changed_at).toLocaleString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        })
+      }));
+
+      res.status(200).json(formattedHistory);
+
+    } catch (error) {
+      console.error("Error fetching task history:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  }
+};
+
 module.exports = TaskController;

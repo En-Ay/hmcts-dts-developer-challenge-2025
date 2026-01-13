@@ -10,23 +10,28 @@
 {% block content %}
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
-    
-    {% if errors and (errors | length > 0) %}
-      {{ govukErrorSummary({
-        titleText: "Error",
-        errorList: [
-          { text: errors.title[0], href: "#title" } if errors.title,
-          { text: errors.description[0], href: "#description" } if errors.description,
-          { text: errors.due_date[0], href: "#due_date" } if errors.due_date
-        ]
-      }) }}
+
+    {# Build error list safely #}
+    {% set errorList = [] %}
+    {% if errors.title %}
+      {% set errorList = errorList.append({ text: errors.title[0], href: "#title" }) %}
+    {% endif %}
+    {% if errors.description %}
+      {% set errorList = errorList.append({ text: errors.description[0], href: "#description" }) %}
+    {% endif %}
+    {% if errors.due_date %}
+      {% set errorList = errorList.append({ text: errors.due_date[0], href: "#due_date" }) %}
+    {% endif %}
+
+    {% if errorList | length > 0 %}
+      {{ govukErrorSummary({ titleText: "Error", errorList: errorList }) }}
     {% endif %}
 
   </div>
 </div>
 
 <div class="govuk-grid-row">
-  
+
   <div class="govuk-grid-column-two-thirds">
 
     {{ govukBackLink({ text: "Back", href: "/" }) }}
@@ -36,19 +41,14 @@
     <input type="hidden" id="task-id" value="{{ task.id }}">
 
     <form action="/edit-task/{{ task.id }}" method="POST" novalidate>
-      
+
       {{ govukInput({
-        label: {
-          text: "Task Title",
-          classes: "govuk-label--l"
-        },
+        label: { text: "Task Title", classes: "govuk-label--l" },
         id: "title",
         name: "title",
         classes: "govuk-input--width-full",
         attributes: { maxlength: "100" },
-        hint: {
-          text: "Enter a brief title for the task (required)."
-        },
+        hint: { text: "Enter a brief title for the task (required)." },
         value: task.title,
         errorMessage: { text: errors.title[0] } if errors.title else null
       }) }}
@@ -57,13 +57,8 @@
         name: "description",
         id: "description",
         maxlength: 2000,
-        label: {
-          text: "Description",
-          classes: "govuk-label--m"
-        },
-        hint: {
-          text: "Provide a detailed description of the task (optional)."
-        },
+        label: { text: "Description", classes: "govuk-label--m" },
+        hint: { text: "Provide a detailed description of the task (optional)." },
         value: task.description
       }) }}
 
@@ -80,13 +75,11 @@
 
       <div class="govuk-form-group {% if errors.due_date %}govuk-form-group--error{% endif %}" id="due-date-group">
         <label class="govuk-label govuk-label--m" for="due_date">Due Date</label>
-        
         {% if errors.due_date %}
         <p class="govuk-error-message">
           <span class="govuk-visually-hidden">Error:</span> {{ errors.due_date[0] }}
         </p>
         {% endif %}
-
         <input class="govuk-input govuk-input--width-20 {% if errors.due_date %}govuk-input--error{% endif %}" 
               id="due_date" name="due_date" type="datetime-local" 
               data-iso="{{ task.due_date }}">
@@ -94,34 +87,39 @@
 
       <div class="govuk-button-group">
         {{ govukButton({ text: "Save Changes" }) }}
-        
         {{ govukButton({
           text: "Delete task",
           classes: "govuk-button--warning",
           href: "/delete-task/" + task.id + "/confirm"
         }) }}
-        
       </div>
 
     </form>
   </div>
 
-    <div class="govuk-grid-column-one-third">
-      <aside class="app-related-items" role="complementary">
-        <h2 class="govuk-heading-m" id="subsection-title">Task History</h2>
-        
-        <div id="history-container" style="
-            border-left: 2px solid #b1b4b6; 
-            padding-left: 15px;
-            padding-right: 10px; 
-            max-height: 650px; 
-            overflow-y: auto;
-        ">
-          <p class="govuk-body-s text-grey">Loading history...</p>
-        </div>
-        
-      </aside>
-    </div>
+  <div class="govuk-grid-column-one-third">
+    <aside class="app-related-items" role="complementary">
+      <h2 class="govuk-heading-m" id="subsection-title">Task History</h2>
+      <div id="history-container" style="
+          border-left: 2px solid #b1b4b6; 
+          padding-left: 15px;
+          padding-right: 10px; 
+          max-height: 650px; 
+          overflow-y: auto;
+      ">
+        {% if history and history | length > 0 %}
+          {% for entry in history %}
+            <div class="history-entry" style="margin-bottom: 15px;">
+              <p class="govuk-body-s"><strong>{{ entry.summary }}</strong></p>
+              <p class="govuk-body-s text-grey">{{ entry.changed_at }}</p>
+            </div>
+          {% endfor %}
+        {% else %}
+          <p class="govuk-body-s text-grey">No history available</p>
+        {% endif %}
+      </div>
+    </aside>
+  </div>
 
 </div>
 {% endblock %}
