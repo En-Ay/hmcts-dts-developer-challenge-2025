@@ -1,5 +1,5 @@
 const express = require('express');
-const bodyParser = require('body-parser');
+
 const nunjucks = require('nunjucks');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
@@ -8,8 +8,8 @@ const dateFilter = require('./filters/dateFilter');
 const app = express();
 
 // Middleware
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // View Engine (Nunjucks for GOV.UK Design System)
 // We look in 'src/views' for our files, and 'node_modules' for the official government components

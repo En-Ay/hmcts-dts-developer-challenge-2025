@@ -375,55 +375,56 @@ const TaskController = {
 
   updateTask: async (req, res) => {
     try {
-      // 1. Validate input (partial updates allowed)
-      const validatedData = taskSchema.partial().parse(req.body);
-
-      // 2. Get the task ID and existing task
       const id = parseInt(req.params.id, 10);
       const existingTask = await TaskModel.findById(id);
-      if (!existingTask) return res.status(404).json({ error: "Task not found" });
 
-      // 3. Validate future due_date if provided
-      if (validatedData.due_date && validatedData.due_date !== existingTask.due_date) {
-        const due = new Date(validatedData.due_date);
+      if (!existingTask) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      // Validate incoming data
+      const validatedData = taskSchema.partial().parse(req.body);
+
+      // Strip out system-managed fields so they cannot be updated
+      const { created_at, updated_at, deleted_at, ...allowedData } = validatedData;
+
+      // Validate due date if present
+      if (allowedData.due_date && allowedData.due_date !== existingTask.due_date) {
+        const due = new Date(allowedData.due_date);
         if (due < new Date()) {
           return res.status(400).json({
-            errors: [{ message: "Due date must be in the future", path: ["due_date"] }]
+            errors: [{
+              message: "Due date must be in the future",
+              path: ["due_date"]
+            }]
           });
         }
       }
 
-      // 4. Generate change summary for audit
-      const changes = generateChangeLog(existingTask, validatedData);
-      const changeSummary = changes.length ? changes.join('\n') : null;
+      // Generate history log
+      const changes = generateChangeLog(existingTask, allowedData);
+      const changeSummary = changes.length ? changes.join("\n") : null;
 
-      // 5. Update the task and record history in a single call
+      // Apply update with updated_at automatically set
       const updatedTask = await TaskModel.update(
         id,
-        { ...existingTask, ...validatedData, updated_at: new Date().toISOString() },
+        { ...existingTask, ...allowedData, updated_at: new Date().toISOString() },
         changeSummary
       );
 
-      // 6. Fetch task history
-      const historyRaw = await TaskModel.getHistory(id);
-      const history = historyRaw.map(entry => ({
-        summary: entry.change_summary,
-        changed_at: new Date(entry.changed_at).toLocaleString('en-GB', {
-          day: '2-digit', month: 'short', year: 'numeric',
-          hour: '2-digit', minute: '2-digit', hour12: false
-        })
-      }));
+      // Fetch history for response
+      const history = await TaskModel.getHistory(id);
 
-      // 7. Respond with updated task + history
       res.status(200).json({ ...updatedTask, history });
 
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ errors: error.errors });
-      console.error("Update Error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ errors: error.errors });
+      }
+      console.error("Update Task Error:", error);
       res.status(500).json({ error: "Internal Server Error" });
     }
   },
-
 
   deleteTask: async (req, res) => {
     try {
