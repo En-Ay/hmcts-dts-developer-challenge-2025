@@ -1,18 +1,17 @@
-const TaskModel = require('../models/taskModel');
-const { sendApiError } = require('../utils/apiHelper'); // Ensure this import is present
 const { z } = require('zod');
-const taskSchema = require('../schemas/taskSchema');
+const TaskModel = require('../models/taskModel');
+const { sendApiError } = require('../utils/apiHelper'); 
+const taskSchema  = require('../schemas/taskSchema');
 const { generateChangeLog } = require('../services/auditService');
 const { buildErrorList } = require('../utils/viewHelper');
-
+const formatDate = require('../utils/formatDate');
 // ==========================================
 // CONTROLLER
 // ==========================================
 const TaskController = {
   
   // --- SSR ROUTES (Returning HTML) ---
-  // These use res.render(), so we DO NOT use sendApiError here.
-
+  // --- DISPLAY CREATE TASK FORM ---
   getCreatePage: (req, res) => {
     const now = new Date();
     const pad = n => n.toString().padStart(2, '0');
@@ -25,11 +24,11 @@ const TaskController = {
       task: { due_date: defaultDate } 
     });
   },
-
+  // --- HANDLE CREATE TASK FORM SUBMISSION ---
   postCreateTask: async (req, res) => {
     try {
       const validation = taskSchema.safeParse(req.body);
-
+      // Validation Failed
       if (!validation.success) {
         const fieldErrors = validation.error.flatten().fieldErrors;
         const errorList = buildErrorList(fieldErrors);
@@ -39,7 +38,7 @@ const TaskController = {
           errorList: errorList
         });
       }
-
+      // Due Date must be in the future
       const data = validation.data;
       const dueDate = new Date(data.due_date);
       if (dueDate < new Date()) {
@@ -49,35 +48,31 @@ const TaskController = {
           errorList: [{ text: "Due date must be in the future", href: "#due_date" }]
         });
       }
-
+      // Create Task
       const taskToCreate = {
         ...data,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-
+      // Save to DB
       const newTask = await TaskModel.create(taskToCreate);
       res.redirect('/');
-
+    // Error Handling
     } catch (error) {
       console.error("Create Task Error:", error);
       res.status(500).render('error.html', { message: "Server Error" });
     }
   },
-
+  // --- DISPLAY EDIT TASK FORM ---
   getEditPage: async (req, res) => {
     try {
       const task = await TaskModel.findById(req.params.id);
       if (!task) return res.status(404).render('error.html', { message: "Task not found" });
-
+      // Format due_date for datetime-local input
       const historyRaw = await TaskModel.getHistory(req.params.id);
       const history = historyRaw.map(h => ({
         summary: h.change_summary,
-        changed_at: new Date(h.changed_at).toLocaleString('en-GB', {
-          timeZone: 'UTC',
-          day: '2-digit', month: 'short', year: 'numeric',
-          hour: '2-digit', minute: '2-digit', hour12: false
-        }) + ' UTC'
+        changed_at: formatDate(h.changed_at) 
       }));
 
       res.render('edit.html', { task, errors: {}, history });
@@ -327,10 +322,7 @@ const TaskController = {
 
       const formattedHistory = history.map(entry => ({
         summary: entry.change_summary,
-        changed_at: new Date(entry.changed_at).toLocaleString('en-GB', {
-          day: '2-digit', month: 'short', year: 'numeric',
-          hour: '2-digit', minute: '2-digit', hour12: false
-        })
+        changed_at: formatDate(entry.changed_at) 
       }));
 
       res.status(200).json(formattedHistory);

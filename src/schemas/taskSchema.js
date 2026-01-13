@@ -1,5 +1,5 @@
 const { z } = require('zod');
-const assertUTC = require('../filters/assertUTC');
+const assertUTC = require('../utils/assertUTC');
 
 // REGEX Patterns
 const TITLE_REGEX = /^[\p{L}\p{N}\s.,:;_\-()'"?!£$%&]+$/u;

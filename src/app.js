@@ -4,7 +4,7 @@ const nunjucks = require('nunjucks');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
-const dateFilter = require('./filters/dateFilter');
+const dateFilter = require('./utils/formatDate');
 const app = express();
 const statusFilter = require('./filters/statusFilter');
 // Middleware
