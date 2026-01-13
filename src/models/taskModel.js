@@ -30,22 +30,23 @@ const TaskModel = {
       db.serialize(() => {
         db.run("BEGIN TRANSACTION");
 
-        const nowISO = new Date().toISOString(); // ISO timestamp for creation & history
+        const nowISO = new Date().toISOString(); // For created_at & updated_at
 
         const sqlInsertTask = `
           INSERT INTO tasks (title, description, status, due_date, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?)
         `;
 
+        // NOTE: task.due_date is required; no default
         db.run(
           sqlInsertTask,
           [
             task.title,
             task.description || '',
             task.status || 'PENDING',
-            task.due_date || null,
-            nowISO, // created_at
-            nowISO  // updated_at
+            task.due_date,       // must be provided by user
+            nowISO,              // created_at
+            nowISO               // updated_at
           ],
           function (err) {
             if (err) return db.run("ROLLBACK", () => reject(err));
@@ -73,19 +74,20 @@ const TaskModel = {
                     title: row.title,
                     description: row.description,
                     status: row.status,
-                    due_date: row.due_date,
+                    due_date: row.due_date,   // populated by user
                     created_at: row.created_at,
                     updated_at: row.updated_at,
                     deleted_at: row.deleted_at || null
                   });
+                });
               });
             });
-          });
-        }
-      );
+          }
+        );
+      });
     });
-  });
-},
+  },
+
 
   // ------------------------
   // Update Task + Audit
@@ -273,21 +275,23 @@ const TaskModel = {
       db.serialize(() => {
         db.run("BEGIN TRANSACTION");
 
+        const nowISO = new Date().toISOString(); // use JS ISO timestamp
+
         const sqlDelete = `
           UPDATE tasks
-          SET deleted_at = CURRENT_TIMESTAMP
+          SET deleted_at = ?
           WHERE id = ? AND deleted_at IS NULL
         `;
 
-        db.run(sqlDelete, [id], function (err) {
+        db.run(sqlDelete, [nowISO, id], function (err) {
           if (err) return db.run("ROLLBACK", () => reject(err));
 
           const sqlHistory = `
-            INSERT INTO task_history (task_id, change_summary)
-            VALUES (?, ?)
+            INSERT INTO task_history (task_id, change_summary, changed_at)
+            VALUES (?, ?, ?)
           `;
 
-          db.run(sqlHistory, [id, "Task deleted"], function (err2) {
+          db.run(sqlHistory, [id, "Task deleted", nowISO], function (err2) {
             if (err2) return db.run("ROLLBACK", () => reject(err2));
 
             db.run("COMMIT", (errCommit) => {
@@ -299,6 +303,7 @@ const TaskModel = {
       });
     });
   },
+
   // Audit History Method
   addHistory: async (taskId, summary) => {
     const sql = `
