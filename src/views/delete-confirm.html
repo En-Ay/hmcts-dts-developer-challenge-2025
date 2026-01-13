@@ -18,7 +18,7 @@
           { key: { text: "Task ID" }, value: { text: task.id|string } },
           { key: { text: "Title" }, value: { text: task.title } },
           { key: { text: "Description" }, value: { text: task.description or "No description provided" } },
-          { key: { text: "Status" }, value: { text: task.status } },
+          { key: { text: "Status" }, value: { text: task.status | friendlyStatus } },
           { key: { text: "Due Date" }, value: { text: task.due_date_formatted } },
           { key: { text: "Created At" }, value: { text: task.created_at_formatted } }
         ]

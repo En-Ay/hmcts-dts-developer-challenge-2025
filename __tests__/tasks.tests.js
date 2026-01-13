@@ -23,20 +23,20 @@ describe('HMCTS Task API Integration Tests', () => {
       ...overrides
     };
 
-    const res = await request(app).post('/api/tasks').send(taskData);
+    const res = await request(app).post('/api/v1/tasks').send(taskData);
     expect(res.statusCode).toBe(201);
     return res.body;
   };
 
   // Helper to fetch task history
   const fetchHistory = async (taskId) => {
-    const res = await request(app).get(`/api/tasks/${taskId}/history`);
+    const res = await request(app).get(`/api/v1/tasks/${taskId}/history`);
     expect(res.statusCode).toBe(200);
     return res.body;
   };
 
   // 1. Create a task
-  it('POST /api/tasks - should create a new task', async () => {
+  it('POST /api/v1/tasks - should create a new task', async () => {
     const task = await createTask();
     const history = await fetchHistory(task.id);
 
@@ -48,11 +48,11 @@ describe('HMCTS Task API Integration Tests', () => {
   });
 
   // 2. Create without title
-  it('POST /api/tasks - should fail if title is missing', async () => {
+  it('POST /api/v1/tasks - should fail if title is missing', async () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const res = await request(app).post('/api/tasks').send({
+    const res = await request(app).post('/api/v1/tasks').send({
       description: 'No title',
       due_date: tomorrow.toISOString()
     });
@@ -64,8 +64,8 @@ describe('HMCTS Task API Integration Tests', () => {
   });
 
   // 3. Past due date
-  it('POST /api/tasks - should block tasks with past due dates', async () => {
-    const res = await request(app).post('/api/tasks').send({
+  it('POST /api/v1/tasks - should block tasks with past due dates', async () => {
+    const res = await request(app).post('/api/v1/tasks').send({
       title: 'Invalid Task',
       due_date: '1990-01-01'
     });
@@ -77,11 +77,11 @@ describe('HMCTS Task API Integration Tests', () => {
   });
 
   // 4. Unsafe characters
-  it('POST /api/tasks - should block titles with unsafe characters', async () => {
+  it('POST /api/v1/tasks - should block titles with unsafe characters', async () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const res = await request(app).post('/api/tasks').send({
+    const res = await request(app).post('/api/v1/tasks').send({
       title: 'Malicious <script>alert(1)</script>',
       due_date: tomorrow.toISOString()
     });
@@ -93,24 +93,23 @@ describe('HMCTS Task API Integration Tests', () => {
   });
 
   // 5. International characters
-  it('POST /api/tasks - should accept titles with international characters', async () => {
+  it('POST /api/v1/tasks - should accept titles with international characters', async () => {
     const task = await createTask({ title: "Case Review: Renée & Noël (Åsa's File)" });
     const history = await fetchHistory(task.id);
 
-    console.log('Test 5 - Created Task:', task);
-    console.log('Test 5 - History:', history);
-
     expect(task.title).toBe("Case Review: Renée & Noël (Åsa's File)");
     expect(history.length).toBe(1);
-    });
-  // 6. Update status and save history
-  it('PUT /api/tasks/:id - should update task status and save history', async () => {
+  });
+
+  // 6. Update status (PATCH) and save history
+  it('PATCH /api/v1/tasks/:id - should update task status and save history', async () => {
     const task = await createTask();
 
-    // Update status
+    // Update status using PATCH
     const res = await request(app)
-      .put(`/api/tasks/${task.id}`)
+      .patch(`/api/v1/tasks/${task.id}`)
       .send({ status: 'IN_PROGRESS' });
+    
     expect(res.statusCode).toBe(200);
 
     // Fetch history
@@ -121,12 +120,12 @@ describe('HMCTS Task API Integration Tests', () => {
     expect(history[0].summary).toContain('Status changed');
   });
 
-  // 7. Update title and description
-  it('PUT /api/tasks/:id - should update title and description with combined history', async () => {
+  // 7. Update title and description (PATCH)
+  it('PATCH /api/v1/tasks/:id - should update title and description with combined history', async () => {
     const task = await createTask();
 
     const updates = { title: 'Updated Title', description: 'Updated Description' };
-    const res = await request(app).put(`/api/tasks/${task.id}`).send(updates);
+    const res = await request(app).patch(`/api/v1/tasks/${task.id}`).send(updates);
     expect(res.statusCode).toBe(200);
 
     const history = await fetchHistory(task.id);
@@ -136,22 +135,23 @@ describe('HMCTS Task API Integration Tests', () => {
     expect(history[0].summary).toContain('Title changed');
     expect(history[0].summary).toContain('Description changed');
   });
-  // 8. Update with past date
-  it('PUT /api/tasks/:id - should block updates to past dates', async () => {
+
+  // 8. Update with past date (PATCH)
+  it('PATCH /api/v1/tasks/:id - should block updates to past dates', async () => {
     const task = await createTask();
 
-    const res = await request(app).put(`/api/tasks/${task.id}`).send({ due_date: '1995-05-05' });
+    const res = await request(app).patch(`/api/v1/tasks/${task.id}`).send({ due_date: '1995-05-05' });
     console.log('Test 8 - Response:', res.body);
 
     expect(res.statusCode).toBe(400);
     expect(res.body.errors[0].message).toContain("Due date");
   });
 
-  // 9. Remove title
-  it('PUT /api/tasks/:id - should block removing the title', async () => {
+  // 9. Remove title (PATCH)
+  it('PATCH /api/v1/tasks/:id - should block removing the title', async () => {
     const task = await createTask();
 
-    const res = await request(app).put(`/api/tasks/${task.id}`).send({ title: '' });
+    const res = await request(app).patch(`/api/v1/tasks/${task.id}`).send({ title: '' });
     console.log('Test 9 - Response:', res.body);
 
     expect(res.statusCode).toBe(400);
@@ -159,10 +159,10 @@ describe('HMCTS Task API Integration Tests', () => {
   });
 
   // 10. Get history
-  it('GET /api/tasks/:id/history - should retrieve all audit logs', async () => {
+  it('GET /api/v1/tasks/:id/history - should retrieve all audit logs', async () => {
     const task = await createTask();
-    await request(app).put(`/api/tasks/${task.id}`).send({ status: 'IN_PROGRESS' });
-    await request(app).put(`/api/tasks/${task.id}`).send({ title: 'Updated Title', description: 'Updated Description' });
+    await request(app).patch(`/api/v1/tasks/${task.id}`).send({ status: 'IN_PROGRESS' });
+    await request(app).patch(`/api/v1/tasks/${task.id}`).send({ title: 'Updated Title', description: 'Updated Description' });
 
     const history = await fetchHistory(task.id);
     console.log('Test 10 - History:', history);
@@ -174,24 +174,31 @@ describe('HMCTS Task API Integration Tests', () => {
     });
   });
 
-  // 11. Soft delete API
-  it('DELETE /api/tasks/:id - should soft delete the task', async () => {
+  // 11. Soft delete API & RFC 7807 Error Check
+  it('DELETE /api/v1/tasks/:id - should soft delete the task and return Problem JSON on subsequent fetch', async () => {
     const task = await createTask();
 
-    const delRes = await request(app).delete(`/api/tasks/${task.id}`);
-    const getRes = await request(app).get(`/api/tasks/${task.id}`);
-
-    console.log('Test 11 - Delete Response:', delRes.statusCode);
-    console.log('Test 11 - Get After Delete:', getRes.statusCode);
-
+    // 1. Delete
+    const delRes = await request(app).delete(`/api/v1/tasks/${task.id}`);
     expect(delRes.statusCode).toBe(204);
+
+    // 2. Try to Get (Should fail with RFC 7807)
+    const getRes = await request(app).get(`/api/v1/tasks/${task.id}`);
+    
+    console.log('Test 11 - Get After Delete Body:', getRes.body);
+
     expect(getRes.statusCode).toBe(404);
+    
+    // NEW: Verify RFC 7807 Structure
+    expect(getRes.body).toHaveProperty('type', 'https://httpstatuses.com/404');
+    expect(getRes.body).toHaveProperty('title', 'Not Found');
+    expect(getRes.body.detail).toContain(`Task with ID ${task.id} could not be found`);
   });
 
   // 12. Soft delete DB check
   it('Internal DB Check - deleted task should still exist in DB (Soft Delete)', async () => {
     const task = await createTask();
-    await request(app).delete(`/api/tasks/${task.id}`);
+    await request(app).delete(`/api/v1/tasks/${task.id}`);
 
     const row = await new Promise((resolve, reject) => {
       db.get(`SELECT * FROM tasks WHERE id = ?`, [task.id], (err, row) => {
@@ -200,15 +207,14 @@ describe('HMCTS Task API Integration Tests', () => {
       });
     });
 
-    console.log('Test 12 - Soft Deleted Task:', row);
-
     expect(row).toBeDefined();
     expect(row.deleted_at).not.toBeNull();
   });
+
   // 13. Direct DB history check
   it('Direct DB check for task_history', async () => {
     const task = await createTask();
-    await request(app).put(`/api/tasks/${task.id}`).send({ status: 'IN_PROGRESS' });
+    await request(app).patch(`/api/v1/tasks/${task.id}`).send({ status: 'IN_PROGRESS' });
 
     const rows = await new Promise((resolve, reject) => {
       db.all(
@@ -221,11 +227,25 @@ describe('HMCTS Task API Integration Tests', () => {
       );
     });
 
-    console.log('Test 13 - Task History Rows:', rows);
-
     expect(rows.length).toBe(2);
     expect(rows[0].change_summary).toContain('Task created');
     expect(rows[1].change_summary).toContain('Status changed');
+  });
+
+  // 14. UI Routes
+  describe('UI Routes (HTML)', () => {
+    it('GET / - should return the home page HTML', async () => {
+      const res = await request(app).get('/');
+      expect(res.statusCode).toBe(200);
+      expect(res.header['content-type']).toMatch(/html/);
+      expect(res.text).toContain('Caseworker Tasks');
+    });
+
+    it('GET /create-task - should return the create form', async () => {
+      const res = await request(app).get('/create-task');
+      expect(res.statusCode).toBe(200);
+      expect(res.text).toMatch(/Create New Task/i);
+    });
   });
 
   // Close DB

@@ -74,19 +74,25 @@
               <div class="govuk-checkboxes__item">
                 <input class="govuk-checkboxes__input" id="status-pending" name="status" type="checkbox" value="PENDING"
                 {{ 'checked' if selectedStatus and 'PENDING' in selectedStatus }}>
-                <label class="govuk-label govuk-checkboxes__label" for="status-pending">Pending</label>
+                <label class="govuk-label govuk-checkboxes__label" for="status-pending">
+                  {{ 'PENDING' | friendlyStatus }}
+                </label>
               </div>
 
               <div class="govuk-checkboxes__item">
                 <input class="govuk-checkboxes__input" id="status-progress" name="status" type="checkbox" value="IN_PROGRESS"
                 {{ 'checked' if selectedStatus and 'IN_PROGRESS' in selectedStatus }}>
-                <label class="govuk-label govuk-checkboxes__label" for="status-progress">In Progress</label>
+                <label class="govuk-label govuk-checkboxes__label" for="status-progress">
+                  {{ 'IN_PROGRESS' | friendlyStatus }}
+                </label>
               </div>
 
               <div class="govuk-checkboxes__item">
                 <input class="govuk-checkboxes__input" id="status-completed" name="status" type="checkbox" value="COMPLETED"
                 {{ 'checked' if selectedStatus and 'COMPLETED' in selectedStatus }}>
-                <label class="govuk-label govuk-checkboxes__label" for="status-completed">Completed</label>
+                <label class="govuk-label govuk-checkboxes__label" for="status-completed">
+                  {{ 'COMPLETED' | friendlyStatus }}
+                </label>
               </div>
 
               <div class="govuk-checkboxes__item">
@@ -216,12 +222,12 @@
 
             <td class="govuk-table__cell">
               {% if task.status == 'COMPLETED' %}
-                  {{ govukTag({ text: "Completed", classes: "govuk-tag--green" }) }}
-                {% elif task.status == 'IN_PROGRESS' %}
-                  {{ govukTag({ text: "In Progress", classes: "govuk-tag--blue" }) }}
-                {% else %}
-                  {{ govukTag({ text: "Pending", classes: "govuk-tag--grey" }) }}
-                {% endif %}
+                {{ govukTag({ text: task.status | friendlyStatus, classes: "govuk-tag--green" }) }}
+              {% elif task.status == 'IN_PROGRESS' %}
+                {{ govukTag({ text: task.status | friendlyStatus, classes: "govuk-tag--blue" }) }}
+              {% else %}
+                {{ govukTag({ text: task.status | friendlyStatus, classes: "govuk-tag--grey" }) }}
+              {% endif %}
             </td>
             
             <td class="govuk-table__cell">

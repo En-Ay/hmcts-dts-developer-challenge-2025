@@ -6,7 +6,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const dateFilter = require('./filters/dateFilter');
 const app = express();
-
+const statusFilter = require('./filters/statusFilter'); 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -50,7 +50,7 @@ const taskRoutes = require('./routes/tasks');
 const pageRoutes = require('./routes/pages'); 
 
 // Mount the Routes
-app.use('/api/tasks', taskRoutes); // API Endpoints (Swagger, Fetch)
+app.use('/api/v1/tasks', taskRoutes); // API Endpoints (Swagger, Fetch)
 app.use('/', pageRoutes);          // HTML Pages (SSR)
 
 // --- ERROR HANDLERS ---
@@ -77,7 +77,10 @@ const njkEnv = nunjucks.configure([
   autoescape: true,
   express: app
 });
-
-// Register the custom date filter
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'UP' });
+});
+// Register the custom filters
 njkEnv.addFilter('date', dateFilter);
+njkEnv.addFilter('friendlyStatus', statusFilter);
 module.exports = app;

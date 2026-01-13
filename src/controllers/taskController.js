@@ -1,12 +1,9 @@
 const TaskModel = require('../models/taskModel');
 const assertUTC = require('../filters/assertUTC');
+const { sendApiError } = require('../utils/apiHelper'); // Ensure this import is present
 const { z } = require('zod');
+
 // REGEX Patterns:
-// ^ ... $  : Match start to end
-// \p{L}    : Any Unicode Letter (includes accents like é, ü, ñ, etc.)
-// \p{N}    : Any Unicode Number
-// \s       : Whitespace
-// ...      : Plus your specific punctuation allowed list
 const TITLE_REGEX = /^[\p{L}\p{N}\s.,:;_\-()'"?!£$%&]+$/u;
 const DESC_REGEX = /^[\p{L}\p{N}\s.,:;_\-()'"?!£$%&\n\r]+$/u;
 
@@ -25,7 +22,6 @@ const taskSchema = z.object({
 
   status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED']).default('PENDING'),
 
-  // UTC validation enforced via the helper
   due_date: z.string()
     .min(1, "Due date is required")
     .refine(val => {
@@ -37,22 +33,20 @@ const taskSchema = z.object({
       }
     }, { message: "Due date must be a valid ISO string" })
 });
+
 // ==========================================
 // CONFIG: Audit Logging Logic
 // ==========================================
-// Defined at the top level so the Controller can see it
 const AUDIT_CONFIG = {
   title: { label: "Title" },
   description: { label: "Description" },
   status: { 
     label: "Status",
-    // Formatter: "IN_PROGRESS" -> "In Progress"
     format: (val) => val
       ? val.replace(/_/g, ' ')
            .toLowerCase()
            .replace(/\b\w/g, c => c.toUpperCase())
       : val,
-    // Optional: consider all status strings case-insensitively equal
     isEqual: (a, b) => String(a).toUpperCase() === String(b).toUpperCase()
   },
   due_date: { 
@@ -75,27 +69,20 @@ const AUDIT_CONFIG = {
 };
 
 // --- HELPER FUNCTIONS ---
-
-// Helper function to detect changes
 function generateChangeLog(original, incoming) {
   const changes = [];
-
   Object.keys(AUDIT_CONFIG).forEach(key => {
-    if (!(key in incoming)) return; // skip fields not being updated
-
+    if (!(key in incoming)) return; 
     const config = AUDIT_CONFIG[key];
     const oldVal = original[key];
     const newVal = incoming[key];
-
     const isSame = config.isEqual ? config.isEqual(oldVal, newVal) : oldVal === newVal;
-
     if (!isSame) {
       const fromText = config.format ? config.format(oldVal) : (oldVal ?? '');
       const toText = config.format ? config.format(newVal) : (newVal ?? '');
       changes.push(`${config.label} changed from '${fromText}' to '${toText}'`);
     }
   });
-
   return changes;
 }
 
@@ -103,13 +90,16 @@ function generateChangeLog(original, incoming) {
 // CONTROLLER
 // ==========================================
 const TaskController = {
-  getCreatePage: (req, res) => {
-  const now = new Date();
-  const pad = n => n.toString().padStart(2, '0');
+  
+  // --- SSR ROUTES (Returning HTML) ---
+  // These use res.render(), so we DO NOT use sendApiError here.
 
-  const defaultDate =
-    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T` +
-    `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  getCreatePage: (req, res) => {
+    const now = new Date();
+    const pad = n => n.toString().padStart(2, '0');
+    const defaultDate =
+      `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T` +
+      `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
     res.render('create.html', { 
       errors: {}, 
@@ -117,7 +107,6 @@ const TaskController = {
     });
   },
 
-  // POST: Handle the Create Task Form Submission
   postCreateTask: async (req, res) => {
     try {
       const validation = taskSchema.safeParse(req.body);
@@ -132,8 +121,6 @@ const TaskController = {
       }
 
       const data = validation.data;
-
-      // Validate future due date
       const dueDate = new Date(data.due_date);
       if (dueDate < new Date()) {
         return res.render('create.html', {
@@ -143,17 +130,13 @@ const TaskController = {
         });
       }
 
-      // Set timestamps for creation
       const taskToCreate = {
         ...data,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
-      // Create task and insert SINGLE "Task created" history row
       const newTask = await TaskModel.create(taskToCreate);
-
-      // Redirect or render success page
       res.redirect('/');
 
     } catch (error) {
@@ -162,43 +145,33 @@ const TaskController = {
     }
   },
 
-
   getEditPage: async (req, res) => {
     try {
       const task = await TaskModel.findById(req.params.id);
       if (!task) return res.status(404).render('error.html', { message: "Task not found" });
 
-      // Fetch history and map field names for the template
       const historyRaw = await TaskModel.getHistory(req.params.id);
       const history = historyRaw.map(h => ({
         summary: h.change_summary,
         changed_at: new Date(h.changed_at).toLocaleString('en-GB', {
           timeZone: 'UTC',
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
+          day: '2-digit', month: 'short', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', hour12: false
         }) + ' UTC'
       }));
 
       res.render('edit.html', { task, errors: {}, history });
     } catch (error) {
-    console.log("Task:", task);
-    console.log("History:", history);
-    res.render('edit.html', { task, errors: {}, history });
+      console.error("Edit Page Error:", error);
+      res.render('edit.html', { task: {}, errors: {}, history: [] });
     }
   },
 
-
-  // POST: Handle the Edit Form Submission
   postEditTask: async (req, res) => {
     try {
       const taskId = parseInt(req.params.id, 10);
-
-      // 1. Validate input
       const validation = taskSchema.safeParse(req.body);
+      
       if (!validation.success) {
         const fieldErrors = validation.error.flatten().fieldErrors;
         return res.render('edit.html', {
@@ -209,12 +182,9 @@ const TaskController = {
       }
 
       const newData = validation.data;
-
-      // 2. Fetch existing task
       const existingTask = await TaskModel.findById(taskId);
       if (!existingTask) return res.status(404).render('error.html', { message: "Task not found." });
 
-      // 3. Validate future due date
       if (newData.due_date && newData.due_date !== existingTask.due_date) {
         const due = new Date(newData.due_date);
         if (due < new Date()) {
@@ -226,18 +196,15 @@ const TaskController = {
         }
       }
 
-      // 4. Generate change summary
       const changes = generateChangeLog(existingTask, newData);
       const changeSummary = changes.length ? changes.join('\n') : null;
 
-      // 5. Update task in a single call
       await TaskModel.update(
         taskId,
         { ...existingTask, ...newData, updated_at: new Date().toISOString() },
         changeSummary
       );
 
-      // 6. Redirect after successful update
       res.redirect('/');
 
     } catch (error) {
@@ -246,17 +213,12 @@ const TaskController = {
     }
   },
 
-
   getDeleteConfirmPage: async (req, res) => {
     const taskId = parseInt(req.params.id, 10);
     const task = await TaskModel.findById(taskId);
+    if (!task) return res.status(404).send("Task not found");
 
-    if (!task) {
-      return res.status(404).send("Task not found");
-    }
-
-    const formatDate = (d) =>
-      d ? new Date(d).toLocaleString("en-GB", { 
+    const formatDate = (d) => d ? new Date(d).toLocaleString("en-GB", { 
         day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
       }) : "Not set";
 
@@ -265,7 +227,7 @@ const TaskController = {
 
     res.render("delete-confirm.html", { task });
   },
-  // POST: Handle Delete (SSR Style)
+
   postDeleteTask: async (req, res) => {
     try {
       await TaskModel.delete(req.params.id);
@@ -274,79 +236,70 @@ const TaskController = {
       res.status(500).render('error.html', { message: "Could not delete task" });
     }
   },
-  // GET: Render Home Page with Task List
+
   getHomePage: async (req, res) => {
     try {
-      // 1. Parse Status Filters
-      // Express handles ?status=A&status=B as an array ['A', 'B']
-      // If one is checked, it's a string 'A'. If none, it's undefined.
       let statuses = req.query.status;
-      
-      // Normalize to array
       if (!statuses) {
-          // Default: If user visits homepage first time, decide what to show.
-          // For now, let's show EVERYTHING if nothing selected, or default to PENDING/IN_PROGRESS
           statuses = ['PENDING', 'IN_PROGRESS', 'COMPLETED']; 
       } else if (typeof statuses === 'string') {
           statuses = [statuses];
       }
-
-      // 2. Parse Sort Options
       const sort = req.query.sort || 'due_date';
       const order = req.query.order || 'ASC';
 
-      // 3. Fetch Data
       const tasks = await TaskModel.findAll({ 
         statusFilters: statuses, 
         sortBy: sort, 
         sortOrder: order 
       });
 
-      // 4. Render View
-      // We pass the params back to the view so the checkboxes stay checked!
       res.render('index.html', { 
         tasks, 
         selectedStatus: statuses,
         currentSort: sort,
         currentOrder: order
       });
-
     } catch (error) {
       console.error(error);
       res.status(500).render('error.html', { message: "Server Error" });
     }
   },
-  // API: Get All Tasks (JSON)
+
+  // --- API ROUTES (JSON) ---
+
   getAllTasks: async (req, res) => {
     try {
-      // The API can also benefit from the filtering logic if you want!
-      // For now, calling it empty returns everything (as per default params in Model)
       const tasks = await TaskModel.findAll();
       res.status(200).json(tasks);
     } catch (error) {
-      res.status(500).json({ error: "Internal Server Error" });
+      // FIX: Standardized 500
+      sendApiError(res, 500, "An unexpected error occurred while retrieving tasks.");
     }
   },
 
   getTaskById: async (req, res) => {
     try {
       const task = await TaskModel.findById(req.params.id);
-      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (!task) {
+        // FIX: Standardized 404
+        return sendApiError(res, 404, `Task with ID ${req.params.id} could not be found.`);
+      }
       res.status(200).json(task);
     } catch (error) {
-      res.status(500).json({ error: "Internal Server Error" });
+      // FIX: Standardized 500
+      sendApiError(res, 500, "An unexpected error occurred while retrieving the task.");
     }
   },
 
   createTask: async (req, res) => {
     try {
-      // 1. Validate input with Zod (includes UTC ISO check)
       const validatedData = taskSchema.parse(req.body);
 
-      // 2. Ensure due_date is in the future
       if (validatedData.due_date) {
         const dueDate = new Date(validatedData.due_date);
         if (dueDate < new Date()) {
+          // Keeping standard Zod structure for field validation consistency
           return res.status(400).json({
             errors: [{
               message: "Due date must be in the future",
@@ -356,7 +309,6 @@ const TaskController = {
         }
       }
 
-      // 3. Set timestamps
       const now = new Date().toISOString();
       const taskData = {
         ...validatedData,
@@ -364,18 +316,17 @@ const TaskController = {
         updated_at: now
       };
 
-      // 4. Create task
       const newTask = await TaskModel.create(taskData);
-
-      // 5. Respond
       res.status(201).json(newTask);
 
     } catch (error) {
       if (error instanceof z.ZodError) {
+        // Keeping Zod structure for frontend compatibility
         return res.status(400).json({ errors: error.errors });
       }
       console.error("Create Task Error:", error);
-      res.status(500).json({ error: "Internal Server Error" });
+      // FIX: Standardized 500
+      sendApiError(res, 500, "An unexpected error occurred while creating the task.");
     }
   },
 
@@ -385,19 +336,17 @@ const TaskController = {
       const existingTask = await TaskModel.findById(id);
 
       if (!existingTask) {
-        return res.status(404).json({ error: "Task not found" });
+        // FIX: Standardized 404
+        return sendApiError(res, 404, `Task with ID ${id} could not be found.`);
       }
 
-      // Validate incoming data
       const validatedData = taskSchema.partial().parse(req.body);
-
-      // Strip out system-managed fields so they cannot be updated
       const { created_at, updated_at, deleted_at, ...allowedData } = validatedData;
 
-      // Validate due date if present
       if (allowedData.due_date && allowedData.due_date !== existingTask.due_date) {
         const due = new Date(allowedData.due_date);
         if (due < new Date()) {
+          // Keeping standard Zod structure for field validation consistency
           return res.status(400).json({
             errors: [{
               message: "Due date must be in the future",
@@ -407,20 +356,16 @@ const TaskController = {
         }
       }
 
-      // Generate history log
       const changes = generateChangeLog(existingTask, allowedData);
       const changeSummary = changes.length ? changes.join("\n") : null;
 
-      // Apply update with updated_at automatically set
       const updatedTask = await TaskModel.update(
         id,
         { ...existingTask, ...allowedData, updated_at: new Date().toISOString() },
         changeSummary
       );
 
-      // Fetch history for response
       const history = await TaskModel.getHistory(id);
-
       res.status(200).json({ ...updatedTask, history });
 
     } catch (error) {
@@ -428,7 +373,8 @@ const TaskController = {
         return res.status(400).json({ errors: error.errors });
       }
       console.error("Update Task Error:", error);
-      res.status(500).json({ error: "Internal Server Error" });
+      // FIX: Standardized 500
+      sendApiError(res, 500, "An unexpected error occurred while updating the task.");
     }
   },
 
@@ -438,35 +384,29 @@ const TaskController = {
       const existingTask = await TaskModel.findById(taskId);
 
       if (!existingTask) {
-        return res.status(404).json({ error: "Task not found" });
+        // FIX: Standardized 404
+        return sendApiError(res, 404, `Task with ID ${taskId} could not be found.`);
       }
 
-      // Perform soft delete + log audit atomically
       await TaskModel.delete(taskId);
-
-      // Respond with 204 No Content
       res.status(204).send();
     } catch (error) {
       console.error("Delete Task Error:", error);
-      res.status(500).json({ error: "Internal Server Error" });
+      // FIX: Standardized 500
+      sendApiError(res, 500, "An unexpected error occurred while deleting the task.");
     }
   },
 
   getTaskHistory: async (req, res) => {
     try {
-      const taskId = parseInt(req.params.id, 10); // Ensure integer
+      const taskId = parseInt(req.params.id, 10);
       const history = await TaskModel.getHistory(taskId);
 
-      // Format timestamps for display
       const formattedHistory = history.map(entry => ({
         summary: entry.change_summary,
         changed_at: new Date(entry.changed_at).toLocaleString('en-GB', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
+          day: '2-digit', month: 'short', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', hour12: false
         })
       }));
 
@@ -474,7 +414,8 @@ const TaskController = {
 
     } catch (error) {
       console.error("Error fetching task history:", error);
-      res.status(500).json({ error: "Internal Server Error" });
+      // FIX: Standardized 500
+      sendApiError(res, 500, "An unexpected error occurred while retrieving task history.");
     }
   }
 };

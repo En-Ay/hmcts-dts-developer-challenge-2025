@@ -50,7 +50,7 @@ const TaskController = require('../controllers/taskController');
 
 /**
  * @swagger
- * /api/tasks:
+ * /api/v1/tasks:
  *   get:
  *     summary: Returns a list of all tasks
  *     description: Retrieve tasks with optional filters and sorting.
@@ -133,7 +133,7 @@ router.post('/', TaskController.createTask);
 
 /**
  * @swagger
- * /api/tasks/{id}:
+ * /api/v1/tasks/{id}:
  *   get:
  *     summary: Get a task by ID
  *     parameters:
@@ -152,7 +152,7 @@ router.post('/', TaskController.createTask);
  *               $ref: '#/components/schemas/Task'
  *       404:
  *         description: Task not found
- *   put:
+ *   patch:
  *     summary: Update a task by ID
  *     parameters:
  *       - in: path
@@ -194,12 +194,12 @@ router.post('/', TaskController.createTask);
  */
 
 router.get('/:id', TaskController.getTaskById);
-router.put('/:id', TaskController.updateTask);
+router.patch('/:id', TaskController.updateTask);
 router.delete('/:id', TaskController.deleteTask);
 
 /**
  * @swagger
- * /api/tasks/{id}/history:
+ * /api/v1/tasks/{id}/history:
  *   get:
  *     summary: Get audit history for a task
  *     parameters:

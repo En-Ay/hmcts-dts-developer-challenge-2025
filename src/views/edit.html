@@ -67,9 +67,21 @@
         name: "status",
         label: { text: "Status", classes: "govuk-label--m" },
         items: [
-          { value: "PENDING", text: "Pending", selected: task.status == 'PENDING' },
-          { value: "IN_PROGRESS", text: "In Progress", selected: task.status == 'IN_PROGRESS' },
-          { value: "COMPLETED", text: "Completed", selected: task.status == 'COMPLETED' }
+          { 
+            value: "PENDING", 
+            text: "PENDING" | friendlyStatus, 
+            selected: task.status == 'PENDING' 
+          },
+          { 
+            value: "IN_PROGRESS", 
+            text: "IN_PROGRESS" | friendlyStatus, 
+            selected: task.status == 'IN_PROGRESS' 
+          },
+          { 
+            value: "COMPLETED", 
+            text: "COMPLETED" | friendlyStatus, 
+            selected: task.status == 'COMPLETED' 
+          }
         ]
       }) }}
 
