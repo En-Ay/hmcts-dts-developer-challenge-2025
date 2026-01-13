@@ -2,6 +2,8 @@
 
 {% block head %}
   <link href="/govuk/govuk-frontend.min.css" rel="stylesheet">
+  
+  <link href="/css/custom.css" rel="stylesheet">
 {% endblock %}
 
 {% block header %}
@@ -25,5 +27,8 @@
     import { initAll } from '/govuk/govuk-frontend.min.js'
     initAll()
   </script>
+  
   <script src="/js/app.js"></script>
+
+  <script src="/js/custom.js"></script>
 {% endblock %}

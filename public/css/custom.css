@@ -1,0 +1,27 @@
+/* Make buttons look exactly like standard GDS Table Headers */
+.govuk-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* Description Truncation */
+.app-description-truncate {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+}
+
+.app-sort-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none; /* Optional: hides underline until hover if preferred */
+  color: inherit; /* Optional: keeps it black like a header, or remove to have standard blue links */
+}
+
+.app-sort-link:hover {
+  text-decoration: underline;
+  color: #1d70b8; /* GDS Blue on hover */
+}

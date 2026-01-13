@@ -5,52 +5,6 @@
 {% from "govuk/components/tag/macro.njk" import govukTag %}
 
 {% block content %}
-<style>
-  /* Make buttons look exactly like standard GDS Table Headers */
-  .govuk-table {
-    table-layout: fixed;
-    width: 100%;
-  }
-  /* Description Truncation */
-  .app-description-truncate {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 4;
-    line-clamp: 4;
-    overflow: hidden;
-  }
-  
-
-  /* Sort Button Styles */
-  .app-table-sort-button {
-    background: none;
-    border: none;
-    padding: 0;
-    margin: 0;
-    cursor: pointer;
-    font-family: "GDS Transport", arial, sans-serif;
-    font-weight: 700;
-    font-size: 1rem;
-    color: inherit;
-    text-align: left;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    position: relative;
-  }
-
-  .app-table-sort-button:hover {
-    text-decoration: underline;
-  }
-
-  .app-table-sort-button:focus {
-    outline: 3px solid #ffdd00;
-    background-color: #ffdd00;
-    color: #0b0c0c;
-    box-shadow: 0 -2px #ffdd00, 0 4px #0b0c0c;
-    text-decoration: none;
-  }
-</style>
 
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full"> <h1 class="govuk-heading-xl">Caseworker Tasks</h1>
@@ -152,7 +106,7 @@
 
           <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 6%;">
             {% set nextOrder = 'DESC' if currentSort == 'id' and currentOrder == 'ASC' else 'ASC' %}
-            <a href="/?sort=id&order={{ nextOrder }}{{ filterParams }}" class="app-table-sort-button">
+            <a href="/?sort=id&order={{ nextOrder }}{{ filterParams }}" class="govuk-link govuk-link--no-visited-state app-sort-link">
               ID
               {% if currentSort == 'id' %}
                  {{ '▼' if currentOrder == 'DESC' else '▲' }}
@@ -162,7 +116,7 @@
 
           <th scope="col" class="govuk-table__header" style="width: 28%;">
             {% set nextOrder = 'DESC' if currentSort == 'title' and currentOrder == 'ASC' else 'ASC' %}
-            <a href="/?sort=title&order={{ nextOrder }}{{ filterParams }}" class="app-table-sort-button">
+            <a href="/?sort=title&order={{ nextOrder }}{{ filterParams }}" class="govuk-link govuk-link--no-visited-state app-sort-link">
               Title
               {% if currentSort == 'title' %}
                  {{ '▼' if currentOrder == 'DESC' else '▲' }}
@@ -172,7 +126,7 @@
 
           <th scope="col" class="govuk-table__header" style="width: 23%;">
             {% set nextOrder = 'DESC' if currentSort == 'description' and currentOrder == 'ASC' else 'ASC' %}
-            <a href="/?sort=description&order={{ nextOrder }}{{ filterParams }}" class="app-table-sort-button">
+            <a href="/?sort=description&order={{ nextOrder }}{{ filterParams }}" class="govuk-link govuk-link--no-visited-state app-sort-link">
               Description
               {% if currentSort == 'description' %}
                  {{ '▼' if currentOrder == 'DESC' else '▲' }}
@@ -182,7 +136,7 @@
 
           <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 12%;">
              {% set nextOrder = 'DESC' if currentSort == 'status' and currentOrder == 'ASC' else 'ASC' %}
-            <a href="/?sort=status&order={{ nextOrder }}{{ filterParams }}" class="app-table-sort-button">
+            <a href="/?sort=status&order={{ nextOrder }}{{ filterParams }}" class="govuk-link govuk-link--no-visited-state app-sort-link">
               Status
               {% if currentSort == 'status' %}
                  {{ '▼' if currentOrder == 'DESC' else '▲' }}
@@ -192,7 +146,7 @@
 
           <th scope="col" class="govuk-table__header" style="white-space: nowrap; width: 12%;">
              {% set nextOrder = 'DESC' if currentSort == 'due_date' and currentOrder == 'ASC' else 'ASC' %}
-            <a href="/?sort=due_date&order={{ nextOrder }}{{ filterParams }}" class="app-table-sort-button">
+            <a href="/?sort=due_date&order={{ nextOrder }}{{ filterParams }}" class="govuk-link govuk-link--no-visited-state app-sort-link">
               Due Date
               {% if currentSort == 'due_date' %}
                  {{ '▼' if currentOrder == 'DESC' else '▲' }}
