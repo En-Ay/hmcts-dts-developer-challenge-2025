@@ -10,14 +10,10 @@
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
     
-    {% if errors and (errors | length > 0) %}
+    {% if errorList and errorList | length > 0 %}
       {{ govukErrorSummary({
-        titleText: "Error",
-        errorList: [
-          { text: errors.title[0], href: "#title" } if errors.title,
-          { text: errors.description[0], href: "#description" } if errors.description,
-          { text: errors.due_date[0], href: "#due_date" } if errors.due_date
-        ]
+        titleText: "There is a problem",
+        errorList: errorList
       }) }}
     {% endif %}
 

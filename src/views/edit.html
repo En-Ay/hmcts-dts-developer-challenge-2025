@@ -11,20 +11,11 @@
 <div class="govuk-grid-row">
   <div class="govuk-grid-column-full">
 
-    {# Build error list safely #}
-    {% set errorList = [] %}
-    {% if errors.title %}
-      {% set errorList = errorList.append({ text: errors.title[0], href: "#title" }) %}
-    {% endif %}
-    {% if errors.description %}
-      {% set errorList = errorList.append({ text: errors.description[0], href: "#description" }) %}
-    {% endif %}
-    {% if errors.due_date %}
-      {% set errorList = errorList.append({ text: errors.due_date[0], href: "#due_date" }) %}
-    {% endif %}
-
-    {% if errorList | length > 0 %}
-      {{ govukErrorSummary({ titleText: "Error", errorList: errorList }) }}
+    {% if errorList and errorList | length > 0 %}
+      {{ govukErrorSummary({
+        titleText: "There is a problem",
+        errorList: errorList
+      }) }}
     {% endif %}
 
   </div>

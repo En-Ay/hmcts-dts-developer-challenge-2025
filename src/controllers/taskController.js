@@ -1,90 +1,9 @@
 const TaskModel = require('../models/taskModel');
-const assertUTC = require('../filters/assertUTC');
 const { sendApiError } = require('../utils/apiHelper'); // Ensure this import is present
 const { z } = require('zod');
-
-// REGEX Patterns:
-const TITLE_REGEX = /^[\p{L}\p{N}\s.,:;_\-()'"?!£$%&]+$/u;
-const DESC_REGEX = /^[\p{L}\p{N}\s.,:;_\-()'"?!£$%&\n\r]+$/u;
-
-// 1. Validation (Types Only)
-const taskSchema = z.object({
-  title: z.string()
-    .min(1, "Title is required")
-    .max(100, "Title must be 100 characters or less")
-    .regex(TITLE_REGEX, "Title contains invalid characters (check for special symbols)"),
-
-  description: z.string()
-    .max(2000, "Description must be 2000 characters or less")
-    .regex(DESC_REGEX, "Description contains invalid characters")
-    .optional()
-    .or(z.literal('')),
-
-  status: z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED']).default('PENDING'),
-
-  due_date: z.string()
-    .min(1, "Due date is required")
-    .refine(val => {
-      try {
-        assertUTC(val);
-        return true;
-      } catch {
-        return false;
-      }
-    }, { message: "Due date must be a valid ISO string" })
-});
-
-// ==========================================
-// CONFIG: Audit Logging Logic
-// ==========================================
-const AUDIT_CONFIG = {
-  title: { label: "Title" },
-  description: { label: "Description" },
-  status: { 
-    label: "Status",
-    format: (val) => val
-      ? val.replace(/_/g, ' ')
-           .toLowerCase()
-           .replace(/\b\w/g, c => c.toUpperCase())
-      : val,
-    isEqual: (a, b) => String(a).toUpperCase() === String(b).toUpperCase()
-  },
-  due_date: { 
-    label: "Due date",
-    isEqual: (a, b) => {
-      if (!a && !b) return true;
-      if (!a || !b) return false;
-      return new Date(a).getTime() === new Date(b).getTime();
-    },
-    format: (val) => {
-      if (!val) return '';
-      const d = new Date(val);
-      return d.toLocaleString('en-GB', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-        hour12: false
-      });
-    }
-  }
-};
-
-// --- HELPER FUNCTIONS ---
-function generateChangeLog(original, incoming) {
-  const changes = [];
-  Object.keys(AUDIT_CONFIG).forEach(key => {
-    if (!(key in incoming)) return; 
-    const config = AUDIT_CONFIG[key];
-    const oldVal = original[key];
-    const newVal = incoming[key];
-    const isSame = config.isEqual ? config.isEqual(oldVal, newVal) : oldVal === newVal;
-    if (!isSame) {
-      const fromText = config.format ? config.format(oldVal) : (oldVal ?? '');
-      const toText = config.format ? config.format(newVal) : (newVal ?? '');
-      changes.push(`${config.label} changed from '${fromText}' to '${toText}'`);
-    }
-  });
-  return changes;
-}
+const taskSchema = require('../schemas/taskSchema');
+const { generateChangeLog } = require('../services/auditService');
+const { buildErrorList } = require('../utils/viewHelper');
 
 // ==========================================
 // CONTROLLER
@@ -113,10 +32,11 @@ const TaskController = {
 
       if (!validation.success) {
         const fieldErrors = validation.error.flatten().fieldErrors;
+        const errorList = buildErrorList(fieldErrors);
         return res.render('create.html', {
           errors: fieldErrors,
           task: req.body,
-          errorList: Object.values(fieldErrors).flat().map(msg => ({ text: msg, href: "#" }))
+          errorList: errorList
         });
       }
 
@@ -174,10 +94,13 @@ const TaskController = {
       
       if (!validation.success) {
         const fieldErrors = validation.error.flatten().fieldErrors;
+
+        const errorList = buildErrorList(fieldErrors);
+
         return res.render('edit.html', {
           task: { ...req.body, id: taskId, due_date_input: req.body.due_date },
           errors: fieldErrors,
-          errorList: Object.values(fieldErrors).flat().map(msg => ({ text: msg, href: "#" }))
+          errorList: errorList
         });
       }
 

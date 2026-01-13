@@ -231,8 +231,32 @@ describe('HMCTS Task API Integration Tests', () => {
     expect(rows[0].change_summary).toContain('Task created');
     expect(rows[1].change_summary).toContain('Status changed');
   });
+  // 14. Invalid Date Format (Strict UTC Enforcement)
+  it('POST /api/v1/tasks - should reject dates that are not strict UTC ISO strings (missing Z)', async () => {
+    const res = await request(app).post('/api/v1/tasks').send({
+      title: 'Strict Date Check',
+      // Valid ISO format but missing the 'Z' which denotes UTC
+      due_date: '2050-01-01T12:00:00' 
+    });
 
-  // 14. UI Routes
+    console.log('Test 3a - Response:', res.body);
+
+    expect(res.statusCode).toBe(400);
+    // We expect the specific error message from your schema
+    expect(res.body.errors[0].message).toContain("Due date must be a valid ISO string");
+  });
+
+  // 15. Garbage Date Data
+  it('POST /api/v1/tasks - should reject completely malformed dates', async () => {
+    const res = await request(app).post('/api/v1/tasks').send({
+      title: 'Garbage Date',
+      due_date: 'next tuesday'
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.errors[0].path).toContain('due_date');
+  });
+  // 16. UI Routes
   describe('UI Routes (HTML)', () => {
     it('GET / - should return the home page HTML', async () => {
       const res = await request(app).get('/');

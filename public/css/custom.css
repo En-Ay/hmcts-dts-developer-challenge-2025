@@ -1,4 +1,4 @@
-/* Make buttons look exactly like standard GDS Table Headers */
+/* Table Layout Fix */
 .govuk-table {
   table-layout: fixed;
   width: 100%;
@@ -12,7 +12,7 @@
   line-clamp: 4;
   overflow: hidden;
 }
-
+/* 3. Sort Link Utility: Aligns icons with text using standard GDS colors */
 .app-sort-link {
   display: inline-flex;
   align-items: center;

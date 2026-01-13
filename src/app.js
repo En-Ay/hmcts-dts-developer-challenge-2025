@@ -1,12 +1,12 @@
 const express = require('express');
-
+const helmet = require('helmet');
 const nunjucks = require('nunjucks');
 const path = require('path');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 const dateFilter = require('./filters/dateFilter');
 const app = express();
-const statusFilter = require('./filters/statusFilter'); 
+const statusFilter = require('./filters/statusFilter');
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -21,7 +21,25 @@ nunjucks.configure([
   express: app
 });
 app.set('view engine', 'html');
-
+// --- SECURITY MIDDLEWARE ---
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      // We must allow 'unsafe-inline' for scripts because:
+      // 1. Swagger UI (/api-docs) requires it.
+      // 2. GOV.UK Frontend init script in layout.html is inline.
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      
+      // We must allow 'unsafe-inline' for styles because:
+      // 1. Swagger UI requires it.
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      
+      // Allow images from self and data: (used by Swagger/Maps)
+      imgSrc: ["'self'", "data:"],
+    },
+  },
+}));
 // Serve Static files (CSS/JS/Images from the GOV.UK package)
 app.use('/assets', express.static(path.join(__dirname, '../node_modules/govuk-frontend/dist/govuk/assets')));
 app.use('/govuk', express.static(path.join(__dirname, '../node_modules/govuk-frontend/dist/govuk')));
