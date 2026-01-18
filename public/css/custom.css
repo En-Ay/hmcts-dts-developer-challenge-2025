@@ -12,13 +12,13 @@
   line-clamp: 4;
   overflow: hidden;
 }
-/* 3. Sort Link Utility: Aligns icons with text using standard GDS colors */
+/* Sort Link Utility: Aligns icons with text using standard GDS colors */
 .app-sort-link {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  text-decoration: none; /* Optional: hides underline until hover if preferred */
-  color: inherit; /* Optional: keeps it black like a header, or remove to have standard blue links */
+  text-decoration: none; 
+  color: inherit;
 }
 
 .app-sort-link:hover {
