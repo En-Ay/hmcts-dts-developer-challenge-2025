@@ -12,16 +12,37 @@
   line-clamp: 4;
   overflow: hidden;
 }
-/* Sort Link Utility: Aligns icons with text using standard GDS colors */
-.app-sort-link {
+/* Sort Link Utility */
+/* We target :link and :visited to override the default GDS blue link styles */
+.app-sort-link,
+.app-sort-link:link,
+.app-sort-link:visited {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  text-decoration: none; 
-  color: inherit;
+  text-decoration: none;
+  color: #0b0c0c; /* GDS Black */
 }
 
 .app-sort-link:hover {
-  text-decoration: underline;
-  color: #1d70b8; /* GDS Blue on hover */
+  text-decoration: underline; /* Add underline to show it's clickable */
+  color: #0b0c0c;            /* Keep it Black (do not change to blue) */
+}
+
+/* 4. Task Title Link */
+.app-task-title {
+  font-weight: bold;
+}
+
+/* Force color to black to override standard GDS .govuk-link blue */
+.app-task-title,
+.app-task-title:link,
+.app-task-title:visited {
+  color: #0b0c0c;       /* GDS Black */
+  text-decoration: none; /* Remove underline by default (cleaner UI) */
+}
+
+.app-task-title:hover {
+  text-decoration: underline; /* Add underline on hover */
+  color: #0b0c0c;             /* Keep it Black */
 }
