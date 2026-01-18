@@ -96,7 +96,15 @@ The API is fully documented using Swagger. Visit `/api-docs` to interact with th
 | `GET` | `/api/v1/tasks/:id/history` | View audit log of changes |
 
 ---
+## Known Limitations
 
+As this application is an MVP (Minimum Viable Product) for a technical assessment, the following features were consciously descoped but are identified for the immediate roadmap:
+
+* **Pagination:** The current dashboard loads all tasks in a single view. For a production dataset, **Server-Side Pagination** (using `LIMIT` and `OFFSET` in SQL) would be implemented to preserve performance and reduce browser load.
+* **Rate Limiting:** The API currently has no request throttling. In a live environment, `express-rate-limit` would be added to prevent DoS attacks.
+* **CSRF Protection:** While the API is secured, the server-rendered forms would benefit from **CSURF** tokens to prevent Cross-Site Request Forgery in the browser session.
+
+---
 ## Future Improvements
 
 To move this application from Technical Test to Production Service, the following changes would be implemented via the HMCTS Common Pipeline:
