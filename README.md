@@ -26,10 +26,10 @@ npm start
 ```
 3. **Access the Application:**
 * **User Interface:** [http://localhost:3000](http://localhost:3000)
-* **API Documentation:** [http://localhost:3000/api-docs](http://localhost:3000/api-docs) (If configured)
+* **API Documentation:** [http://localhost:3000/api-docs](http://localhost:3000/api-docs)
 
 ### Run Tests
-The project includes a suite of integration tests using **Jest** and **Supertest** to verify API endpoints, validation logic, and database integrity.
+The project includes a set tests using **Jest** and **Supertest** to verify API endpoints, validation, and database integrity.
 
 ```bash
 npm test
@@ -42,22 +42,15 @@ npm test
 * **Auditability:** Designed to support the high-integrity requirements of HMCTS data handling.
 
 ## Development Methodology
-This project was developed using an **AI-assisted workflow** to demonstrate a modern approach to software delivery.
-
-The development process prioritised **Architectural Oversight** over manual implementation. Artificial Intelligence was leveraged to accelerate boilerplate generation and refactoring, while the human effort focused on:
-
 * **Defining Constraints:** Enforcing [12-Factor App methodologies](https://12factor.net) and [HMCTS Engineering Standards](https://hmcts.github.io/).
 * **Security & Compliance:** Mandating strict Content Security Policies (CSP), input validation strategies, and secure headers.
 * **Review & Refinement:** Auditing generated code for [GDS accessibility compliance](https://www.gov.uk/guidance/accessibility-requirements-for-public-sector-websites-and-apps) and architectural integrity ("Smart UI, Dumb Pipes").
-
-This approach is intended to demonstrate how Engineers can leverage modern tooling to deliver robust, compliant services rapidly while maintaining strict quality control.
-
 ---
 ## Architecture and Design Decisions
 
 ### 1. The Stack
 
-* **Runtime:** Node.js / Express (chosen for non-blocking I/O and JSON native support).
+* **Runtime:** Node.js / Express (chosen for JSON native support).
 * **Frontend:** Server-Side Rendering (SSR) with Nunjucks and GOV.UK Frontend. This ensures compliance with GDS Accessibility standards (WCAG 2.1 AA) and functions without client-side JavaScript if necessary.
 * **Database:** SQLite (Embedded).
 * *Decision:* Chosen for the technical test to ensure the reviewer can run the application with zero setup.
